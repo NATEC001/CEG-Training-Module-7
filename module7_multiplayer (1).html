@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Module 7 — Site Setup Challenge</title>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<!-- QR Code generator -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+:root {
+  --navy: #1A2E4A; --teal: #0E7C7B; --teal-dark: #085041;
+  --gold: #C9A84C; --red: #B84040; --cream: #F5F3EE;
+  --warm: #94918A; --green: #2E7D52; --white: #FFFFFF;
+  --amber: #A07030;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--navy); min-height: 100vh; color: var(--white); overflow-x: hidden; }
+
+/* ── SCREENS ── */
+.screen { display: none; min-height: 100vh; flex-direction: column; }
+.screen.active { display: flex; }
+
+/* ── SHARED COMPONENTS ── */
+.top-bar { background: var(--teal); padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid var(--gold); position: sticky; top: 0; z-index: 100; flex-shrink: 0; }
+.top-bar-title { font-size: 15px; font-weight: 700; }
+.top-bar-sub { font-size: 11px; color: var(--gold); margin-top: 1px; }
+.badge { background: var(--gold); color: var(--navy); padding: 5px 12px; border-radius: 20px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+.badge.red { background: var(--red); color: white; }
+.badge.green { background: var(--green); color: white; }
+
+.btn-primary { width: 100%; padding: 15px; background: var(--gold); color: var(--navy); border: none; border-radius: 12px; font-size: 17px; font-weight: 700; cursor: pointer; }
+.btn-primary:hover { background: #d4b050; }
+.btn-primary:disabled { opacity: .4; cursor: not-allowed; }
+.btn-outline { width: 100%; padding: 13px; background: transparent; color: var(--white); border: 2px solid rgba(255,255,255,.3); border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; }
+.btn-teal { width: 100%; padding: 15px; background: var(--teal); color: var(--white); border: none; border-radius: 12px; font-size: 17px; font-weight: 700; cursor: pointer; }
+.btn-teal:hover { background: var(--teal-dark); }
+
+/* ── LANDING ── */
+#screen-landing { background: var(--navy); align-items: center; justify-content: center; padding: 30px 20px; text-align: center; }
+.landing-logo { width: 84px; height: 84px; background: var(--teal); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; border: 4px solid var(--gold); font-size: 38px; font-weight: 900; color: var(--gold); }
+.landing-title { font-size: 26px; font-weight: 700; line-height: 1.2; margin-bottom: 6px; }
+.landing-sub { font-size: 14px; color: var(--gold); margin-bottom: 8px; }
+.landing-desc { font-size: 13px; color: var(--warm); margin-bottom: 36px; line-height: 1.6; max-width: 340px; }
+.landing-btns { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 360px; }
+.role-card { background: rgba(255,255,255,.07); border-radius: 14px; padding: 20px 18px; cursor: pointer; border: 2px solid transparent; transition: all .15s; display: flex; align-items: center; gap: 16px; text-align: left; }
+.role-card:hover { border-color: var(--gold); background: rgba(14,124,123,.25); }
+.role-icon { font-size: 32px; flex-shrink: 0; }
+.role-name { font-size: 17px; font-weight: 700; }
+.role-desc { font-size: 12px; color: var(--warm); margin-top: 3px; }
+
+/* ── SETUP FIREBASE ── */
+#screen-setup { background: var(--navy); padding: 24px 20px; overflow-y: auto; }
+.setup-title { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+.setup-sub { font-size: 13px; color: var(--warm); margin-bottom: 24px; line-height: 1.5; }
+.setup-field { margin-bottom: 14px; }
+.setup-field label { display: block; font-size: 12px; font-weight: 700; color: var(--gold); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+.setup-field input { width: 100%; padding: 12px 14px; background: rgba(255,255,255,.08); border: 1.5px solid rgba(255,255,255,.2); border-radius: 8px; color: var(--white); font-size: 13px; font-family: monospace; }
+.setup-field input::placeholder { color: var(--warm); }
+.setup-field input:focus { outline: none; border-color: var(--gold); background: rgba(255,255,255,.12); }
+.setup-note { font-size: 12px; color: var(--warm); margin-bottom: 20px; line-height: 1.6; background: rgba(255,255,255,.05); padding: 12px; border-radius: 8px; border-left: 3px solid var(--gold); }
+.setup-note a { color: var(--gold); }
+.setup-btns { display: flex; flex-direction: column; gap: 10px; }
+
+/* ── INSTRUCTOR LOBBY ── */
+#screen-host-lobby { background: var(--navy); overflow-y: auto; }
+.lobby-body { padding: 16px; }
+.room-code-box { background: var(--teal); border-radius: 14px; padding: 20px; text-align: center; margin-bottom: 16px; border: 3px solid var(--gold); }
+.room-code-label { font-size: 12px; color: var(--gold); font-weight: 700; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px; }
+.room-code { font-size: 44px; font-weight: 700; letter-spacing: 8px; color: var(--white); margin-bottom: 4px; }
+.room-url { font-size: 11px; color: rgba(255,255,255,.6); margin-bottom: 16px; }
+#qr-container { background: white; border-radius: 10px; padding: 12px; display: inline-block; }
+.qr-hint { font-size: 11px; color: rgba(255,255,255,.5); margin-top: 10px; }
+
+.players-section { margin-bottom: 16px; }
+.players-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.players-title { font-size: 15px; font-weight: 700; }
+.players-count { font-size: 13px; color: var(--gold); font-weight: 700; }
+.players-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; min-height: 60px; }
+.player-chip { background: rgba(255,255,255,.08); border-radius: 8px; padding: 8px 6px; text-align: center; font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 1.5px solid rgba(14,124,123,.5); animation: chipPop .2s ease; }
+@keyframes chipPop { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.waiting-msg { font-size: 13px; color: var(--warm); text-align: center; padding: 20px; }
+
+.host-controls { display: flex; flex-direction: column; gap: 10px; }
+.settings-row { display: flex; gap: 10px; }
+.setting-btn { flex: 1; padding: 10px 8px; background: rgba(255,255,255,.08); border: 1.5px solid rgba(255,255,255,.2); border-radius: 8px; color: var(--white); font-size: 12px; font-weight: 600; cursor: pointer; text-align: center; transition: all .15s; }
+.setting-btn.active { background: rgba(14,124,123,.4); border-color: var(--teal); }
+
+/* ── INSTRUCTOR GAME SCREEN ── */
+#screen-host-game { background: var(--navy); overflow-y: auto; }
+.host-game-body { padding: 16px; }
+.q-progress { background: rgba(255,255,255,.08); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; }
+.q-progress-num { font-size: 18px; font-weight: 700; color: var(--gold); }
+.q-progress-label { font-size: 12px; color: var(--warm); }
+.host-q-card { background: rgba(255,255,255,.06); border-radius: 12px; padding: 16px; margin-bottom: 14px; border-left: 4px solid var(--teal); }
+.host-q-text { font-size: 16px; font-weight: 600; line-height: 1.4; margin-bottom: 8px; }
+.host-q-answer { font-size: 13px; color: var(--gold); }
+.host-q-cite { font-size: 11px; color: var(--warm); margin-top: 4px; }
+.host-answer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.host-ans-btn { padding: 12px 10px; border-radius: 8px; font-size: 13px; font-weight: 600; text-align: left; border: 2px solid transparent; cursor: default; }
+.host-ans-btn.correct-ans { background: rgba(46,125,82,.25); border-color: var(--green); color: #7ddba0; }
+.host-ans-btn.wrong-ans { background: rgba(255,255,255,.05); border-color: rgba(255,255,255,.1); color: var(--warm); }
+
+.response-bar { background: rgba(255,255,255,.06); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
+.response-label { font-size: 12px; color: var(--warm); margin-bottom: 8px; display: flex; justify-content: space-between; }
+.response-track { height: 8px; background: rgba(255,255,255,.1); border-radius: 4px; overflow: hidden; }
+.response-fill { height: 100%; background: var(--teal); border-radius: 4px; transition: width .4s; }
+
+.live-lb { background: rgba(255,255,255,.06); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
+.live-lb-title { font-size: 13px; font-weight: 700; color: var(--gold); margin-bottom: 10px; }
+.lb-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 0.5px solid rgba(255,255,255,.06); }
+.lb-row:last-child { border-bottom: none; }
+.lb-rank { width: 24px; font-size: 14px; font-weight: 700; color: var(--warm); flex-shrink: 0; }
+.lb-rank.gold { color: var(--gold); }
+.lb-rank.silver { color: #C0C0C0; }
+.lb-rank.bronze { color: #CD7F32; }
+.lb-name { flex: 1; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-score { font-size: 14px; font-weight: 700; color: var(--gold); }
+.lb-delta { font-size: 11px; color: var(--green); margin-left: 4px; }
+
+.host-nav { display: flex; gap: 10px; }
+.host-nav .btn-teal { flex: 2; }
+.host-nav .btn-outline { flex: 1; font-size: 13px; padding: 13px 8px; }
+
+/* ── STUDENT JOIN ── */
+#screen-join { background: var(--navy); align-items: center; justify-content: center; padding: 30px 20px; text-align: center; }
+.join-title { font-size: 24px; font-weight: 700; margin-bottom: 6px; }
+.join-sub { font-size: 14px; color: var(--warm); margin-bottom: 30px; }
+.join-form { width: 100%; max-width: 340px; }
+.join-input { width: 100%; padding: 14px 16px; background: rgba(255,255,255,.1); border: 2px solid rgba(255,255,255,.2); border-radius: 10px; color: var(--white); font-size: 20px; text-align: center; margin-bottom: 12px; letter-spacing: 4px; font-weight: 700; }
+.join-input.name-input { letter-spacing: normal; font-size: 17px; }
+.join-input:focus { outline: none; border-color: var(--gold); }
+.join-error { font-size: 13px; color: var(--red); margin-bottom: 10px; min-height: 18px; }
+
+/* ── STUDENT LOBBY ── */
+#screen-student-lobby { background: var(--navy); align-items: center; justify-content: center; padding: 24px 20px; text-align: center; }
+.lobby-welcome { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+.lobby-room { font-size: 14px; color: var(--gold); margin-bottom: 24px; }
+.lobby-waiting { width: 80px; height: 80px; border-radius: 50%; background: rgba(14,124,123,.3); border: 3px solid var(--teal); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; }
+.lobby-waiting-icon { font-size: 36px; animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.1)} }
+.lobby-status { font-size: 15px; color: var(--warm); margin-bottom: 8px; }
+.lobby-count { font-size: 13px; color: var(--teal); }
+
+/* ── STUDENT QUESTION ── */
+#screen-student-game { background: var(--cream); color: var(--navy); }
+.progress-bar { height: 5px; background: rgba(0,0,0,.1); flex-shrink: 0; }
+.progress-fill { height: 100%; background: var(--teal); transition: width .4s; }
+.student-game-body { padding: 14px; overflow-y: auto; flex: 1; }
+.s-meta { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.s-qnum { font-size: 12px; font-weight: 700; color: var(--teal); text-transform: uppercase; letter-spacing: .05em; }
+.s-cat { font-size: 11px; color: var(--warm); background: rgba(0,0,0,.07); padding: 3px 8px; border-radius: 10px; }
+.timer-ring { width: 44px; height: 44px; flex-shrink: 0; position: relative; }
+.timer-ring svg { transform: rotate(-90deg); }
+.t-track { fill: none; stroke: #e0ddd8; stroke-width: 4; }
+.t-fill { fill: none; stroke: var(--teal); stroke-width: 4; stroke-linecap: round; transition: stroke-dashoffset .9s linear, stroke .3s; }
+.timer-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: var(--navy); }
+.s-qtext { font-size: 17px; font-weight: 600; line-height: 1.45; color: var(--navy); margin-bottom: 4px; }
+.s-qsource { font-size: 11px; color: var(--warm); margin-bottom: 14px; }
+.choices { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+.choice { background: var(--white); border-radius: 10px; padding: 14px 16px; font-size: 15px; color: var(--navy); border: 2px solid transparent; cursor: pointer; transition: all .12s; text-align: left; line-height: 1.4; display: flex; align-items: flex-start; gap: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+.choice:active { transform: scale(.98); }
+.choice-letter { width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; background: var(--cream); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--warm); margin-top: 1px; }
+.choice-text { flex: 1; }
+.choice:hover { border-color: var(--teal); }
+.choice.selected { border-color: var(--teal); background: rgba(14,124,123,.08); }
+.choice.correct { border-color: var(--green); background: rgba(46,125,82,.12); }
+.choice.correct .choice-letter { background: var(--green); color: white; }
+.choice.wrong { border-color: var(--red); background: rgba(184,64,64,.1); }
+.choice.wrong .choice-letter { background: var(--red); color: white; }
+.choice.reveal { border-color: var(--green); background: rgba(46,125,82,.08); }
+.choice.reveal .choice-letter { background: var(--green); color: white; }
+.choice.disabled { cursor: default; pointer-events: none; }
+.s-feedback { border-radius: 10px; padding: 14px 16px; font-size: 14px; line-height: 1.5; margin-bottom: 12px; display: none; }
+.s-feedback.show { display: block; }
+.s-feedback.correct { background: rgba(46,125,82,.12); border-left: 4px solid var(--green); color: #1a4a2e; }
+.s-feedback.wrong { background: rgba(184,64,64,.1); border-left: 4px solid var(--red); color: #5a1a1a; }
+.s-fb-head { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+.s-fb-cite { font-size: 11px; color: var(--warm); margin-top: 6px; font-style: italic; }
+
+/* waiting for next */
+.waiting-next { display: none; text-align: center; padding: 20px; }
+.waiting-next.show { display: block; }
+.wn-icon { font-size: 40px; margin-bottom: 10px; }
+.wn-text { font-size: 15px; color: var(--warm); }
+
+/* ── STUDENT RESULTS ── */
+#screen-student-results { background: var(--navy); overflow-y: auto; padding: 20px 16px; }
+.sr-header { text-align: center; margin-bottom: 20px; }
+.sr-name { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+.sr-score-big { font-size: 52px; font-weight: 700; color: var(--gold); }
+.sr-score-label { font-size: 13px; color: var(--warm); }
+.sr-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 20px; }
+.sr-stat { background: rgba(255,255,255,.07); border-radius: 10px; padding: 12px; text-align: center; }
+.sr-stat-num { font-size: 22px; font-weight: 700; color: var(--gold); }
+.sr-stat-label { font-size: 11px; color: var(--warm); margin-top: 2px; }
+.final-lb-title { font-size: 15px; font-weight: 700; color: var(--gold); margin-bottom: 10px; }
+.final-lb { display: flex; flex-direction: column; gap: 6px; margin-bottom: 24px; }
+.final-lb-row { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.06); border-radius: 8px; padding: 10px 12px; }
+.final-lb-row.me { background: rgba(14,124,123,.25); border: 1.5px solid var(--teal); }
+.flb-rank { width: 28px; font-size: 16px; font-weight: 700; flex-shrink: 0; text-align: center; }
+.flb-name { flex: 1; font-size: 14px; font-weight: 600; }
+.flb-score { font-size: 14px; font-weight: 700; color: var(--gold); }
+
+/* ── HOST RESULTS ── */
+#screen-host-results { background: var(--navy); overflow-y: auto; padding: 20px 16px; }
+.hr-title { font-size: 22px; font-weight: 700; text-align: center; margin-bottom: 6px; }
+.hr-sub { font-size: 13px; color: var(--warm); text-align: center; margin-bottom: 20px; }
+.podium { display: flex; align-items: flex-end; justify-content: center; gap: 8px; margin-bottom: 20px; height: 140px; }
+.podium-spot { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+.podium-name { font-size: 12px; font-weight: 700; margin-bottom: 4px; text-align: center; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.podium-score { font-size: 11px; color: var(--warm); margin-bottom: 4px; }
+.podium-block { width: 80px; border-radius: 6px 6px 0 0; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+.p1 .podium-block { height: 100px; background: var(--gold); }
+.p2 .podium-block { height: 75px; background: #C0C0C0; }
+.p3 .podium-block { height: 55px; background: #CD7F32; }
+.hr-full-lb { display: flex; flex-direction: column; gap: 6px; margin-bottom: 24px; }
+.hr-lb-row { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.06); border-radius: 8px; padding: 10px 12px; }
+.hrlb-rank { width: 24px; font-size: 13px; font-weight: 700; color: var(--warm); flex-shrink: 0; }
+.hrlb-name { flex: 1; font-size: 14px; font-weight: 600; }
+.hrlb-correct { font-size: 12px; color: var(--warm); margin-right: 8px; }
+.hrlb-score { font-size: 14px; font-weight: 700; color: var(--gold); }
+.hr-btns { display: flex; flex-direction: column; gap: 10px; }
+
+/* ── ANIMS ── */
+@keyframes pop { 0%{transform:scale(.95)}50%{transform:scale(1.04)}100%{transform:scale(1)} }
+@keyframes shake { 0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)} }
+.anim-pop { animation: pop .25s ease; }
+.anim-shake { animation: shake .3s ease; }
+@keyframes confetti-fall { 0%{transform:translateY(-20px) rotate(0);opacity:1} 100%{transform:translateY(100vh) rotate(720deg);opacity:0} }
+.confetti-piece { position: fixed; animation: confetti-fall linear forwards; z-index: 999; pointer-events: none; }
+
+/* ── OVERLAY ── */
+.overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
+.overlay.show { display: flex; }
+.overlay-card { background: var(--navy); border-radius: 16px; padding: 24px; width: 100%; max-width: 380px; text-align: center; border: 2px solid var(--gold); }
+.overlay-title { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+.overlay-body { font-size: 14px; color: var(--warm); margin-bottom: 20px; line-height: 1.5; }
+.overlay-btns { display: flex; flex-direction: column; gap: 10px; }
+
+/* ── FIREBASE CONFIG NOTICE ── */
+.config-banner { background: rgba(184,64,64,.2); border: 1.5px solid var(--red); border-radius: 10px; padding: 14px 16px; margin: 16px; font-size: 13px; color: #ffaaaa; line-height: 1.6; display: none; }
+.config-banner.show { display: block; }
+.config-banner strong { color: white; }
+</style>
+</head>
+<body>
+
+<!-- ══════ FIREBASE CONFIG BANNER ══════ -->
+<div class="config-banner" id="config-banner">
+  <strong>⚙️ Firebase not configured yet.</strong><br>
+  Follow the setup instructions below, then paste your Firebase config into the <code>FIREBASE_CONFIG</code> variable at the top of the &lt;script&gt; section and re-upload the file.
+</div>
+
+<!-- ══════ LANDING ══════ -->
+<div id="screen-landing" class="screen active">
+  <div class="landing-logo">7</div>
+  <div class="landing-title">Site Setup Challenge</div>
+  <div class="landing-sub">Module 7 — CDPH Supervisor Training</div>
+  <div class="landing-desc">Live multiplayer quiz game. Instructor hosts the session — students join with their phones.</div>
+  <div class="landing-btns">
+    <div class="role-card" onclick="goInstructor()">
+      <div class="role-icon">🎯</div>
+      <div>
+        <div class="role-name">I'm the Instructor</div>
+        <div class="role-desc">Host a new session, control the game, see live scores</div>
+      </div>
+    </div>
+    <div class="role-card" onclick="goStudent()">
+      <div class="role-icon">📱</div>
+      <div>
+        <div class="role-name">I'm a Student</div>
+        <div class="role-desc">Enter a room code and join my class session</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ FIREBASE SETUP ══════ -->
+<div id="screen-setup" class="screen">
+  <div class="top-bar">
+    <div><div class="top-bar-title">Firebase Setup</div><div class="top-bar-sub">One-time configuration</div></div>
+    <button class="badge" onclick="showScreen('landing')" style="cursor:pointer;">← Back</button>
+  </div>
+  <div style="padding:20px;">
+    <div class="setup-title">Paste your Firebase config</div>
+    <div class="setup-sub">You only need to do this once. After saving, the game works forever for all your classes.</div>
+    <div class="setup-note">
+      <strong>Don't have a Firebase project yet?</strong><br>
+      See the setup instructions included with this file. It takes about 5 minutes at <a href="https://console.firebase.google.com" target="_blank">console.firebase.google.com</a> — free, no credit card.
+    </div>
+    <div class="setup-field">
+      <label>API Key</label>
+      <input type="text" id="cfg-apiKey" placeholder="AIzaSy..."/>
+    </div>
+    <div class="setup-field">
+      <label>Auth Domain</label>
+      <input type="text" id="cfg-authDomain" placeholder="yourapp.firebaseapp.com"/>
+    </div>
+    <div class="setup-field">
+      <label>Database URL</label>
+      <input type="text" id="cfg-databaseURL" placeholder="https://yourapp-default-rtdb.firebaseio.com"/>
+    </div>
+    <div class="setup-field">
+      <label>Project ID</label>
+      <input type="text" id="cfg-projectId" placeholder="yourapp"/>
+    </div>
+    <div class="setup-btns">
+      <button class="btn-primary" onclick="saveFirebaseConfig()">Save & Connect →</button>
+      <button class="btn-outline" onclick="showScreen('landing')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ HOST LOBBY ══════ -->
+<div id="screen-host-lobby" class="screen">
+  <div class="top-bar">
+    <div><div class="top-bar-title">Waiting for Students</div><div class="top-bar-sub" id="host-lobby-sub">Room open</div></div>
+    <div class="badge green" id="host-player-count-badge">0 joined</div>
+  </div>
+  <div class="lobby-body">
+    <div class="room-code-box">
+      <div class="room-code-label">Room Code — students enter this</div>
+      <div class="room-code" id="room-code-display">----</div>
+      <div class="room-url" id="room-url-display"></div>
+      <div id="qr-container"></div>
+      <div class="qr-hint">Students scan with phone camera to join</div>
+    </div>
+
+    <div class="players-section">
+      <div class="players-header">
+        <div class="players-title">Players Joined</div>
+        <div class="players-count" id="players-count-text">Waiting...</div>
+      </div>
+      <div class="players-grid" id="players-grid">
+        <div class="waiting-msg" style="grid-column:1/-1;">Students will appear here as they join</div>
+      </div>
+    </div>
+
+    <div class="host-controls">
+      <div class="settings-row">
+        <div class="setting-btn active" id="btn-q10" onclick="setNumQ(10, this)">10 Questions</div>
+        <div class="setting-btn" id="btn-q20" onclick="setNumQ(20, this)">20 Questions</div>
+        <div class="setting-btn" id="btn-q30" onclick="setNumQ(30, this)">All 30</div>
+      </div>
+      <div class="settings-row">
+        <div class="setting-btn active" id="btn-t20" onclick="setTimer(20, this)">20 sec timer</div>
+        <div class="setting-btn" id="btn-t15" onclick="setTimer(15, this)">15 sec timer</div>
+        <div class="setting-btn" id="btn-t0" onclick="setTimer(0, this)">No timer</div>
+      </div>
+      <button class="btn-primary" id="start-game-btn" onclick="hostStartGame()" disabled>
+        Waiting for players...
+      </button>
+      <button class="btn-outline" onclick="confirmEndSession()">End Session</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ HOST GAME ══════ -->
+<div id="screen-host-game" class="screen">
+  <div class="top-bar">
+    <div><div class="top-bar-title" id="hg-title">Question 1</div><div class="top-bar-sub" id="hg-sub">0 answered</div></div>
+    <div class="badge" id="hg-room-badge">----</div>
+  </div>
+  <div class="host-game-body">
+    <div class="q-progress">
+      <div><div class="q-progress-num" id="hg-qnum">1/10</div><div class="q-progress-label">Question</div></div>
+      <div style="text-align:right"><div class="q-progress-num" id="hg-timer-display">--</div><div class="q-progress-label">Seconds</div></div>
+    </div>
+
+    <div class="host-q-card">
+      <div class="host-q-text" id="hg-qtext"></div>
+      <div class="host-q-answer" id="hg-qanswer"></div>
+      <div class="host-q-cite" id="hg-qcite"></div>
+    </div>
+
+    <div class="host-answer-grid" id="hg-answer-grid"></div>
+
+    <div class="response-bar">
+      <div class="response-label">
+        <span>Student responses</span>
+        <span id="hg-response-count">0 / 0</span>
+      </div>
+      <div class="response-track"><div class="response-fill" id="hg-response-fill" style="width:0%"></div></div>
+    </div>
+
+    <div class="live-lb">
+      <div class="live-lb-title">🏆 Live Leaderboard</div>
+      <div id="hg-live-lb"></div>
+    </div>
+
+    <div class="host-nav">
+      <button class="btn-teal" id="hg-next-btn" onclick="hostNextQuestion()">Reveal Answer & Next →</button>
+      <button class="btn-outline" onclick="confirmEndSession()">End</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ STUDENT JOIN ══════ -->
+<div id="screen-join" class="screen">
+  <div class="join-title">Join a Session</div>
+  <div class="join-sub">Enter the room code shown on the projector</div>
+  <div class="join-form">
+    <input class="join-input" id="join-code-input" maxlength="9" placeholder="LEAD-0000" oninput="formatRoomCode(this)" autocomplete="off" autocapitalize="characters"/>
+    <input class="join-input name-input" id="join-name-input" maxlength="20" placeholder="Your name" style="display:none;" autocomplete="off"/>
+    <div class="join-error" id="join-error"></div>
+    <button class="btn-primary" id="join-btn" onclick="joinStep()">Find Session →</button>
+    <br><br>
+    <button class="btn-outline" onclick="showScreen('landing')">← Back</button>
+  </div>
+</div>
+
+<!-- ══════ STUDENT LOBBY ══════ -->
+<div id="screen-student-lobby" class="screen">
+  <div class="lobby-welcome" id="sl-welcome">You're in!</div>
+  <div class="lobby-room" id="sl-room">Room: ----</div>
+  <div class="lobby-waiting">
+    <div class="lobby-waiting-icon">⏳</div>
+  </div>
+  <div class="lobby-status">Waiting for instructor to start...</div>
+  <div class="lobby-count" id="sl-count">0 players joined</div>
+</div>
+
+<!-- ══════ STUDENT GAME ══════ -->
+<div id="screen-student-game" class="screen">
+  <div class="top-bar" style="background:var(--teal);">
+    <div><div class="top-bar-title" id="sg-name-display">Player</div><div class="top-bar-sub" id="sg-room-display">Room</div></div>
+    <div class="badge" id="sg-score-badge">0 pts</div>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="sg-progress" style="width:0%"></div></div>
+  <div class="student-game-body">
+    <div class="s-meta">
+      <div>
+        <div class="s-qnum" id="sg-qnum">Question 1</div>
+        <div class="s-cat" id="sg-cat"></div>
+      </div>
+      <div class="timer-ring" id="sg-timer-ring">
+        <svg width="44" height="44" viewBox="0 0 44 44">
+          <circle class="t-track" cx="22" cy="22" r="18"/>
+          <circle class="t-fill" id="sg-timer-circle" cx="22" cy="22" r="18" stroke-dasharray="113" stroke-dashoffset="0"/>
+        </svg>
+        <div class="timer-text" id="sg-timer-text">20</div>
+      </div>
+    </div>
+    <div class="s-qtext" id="sg-qtext"></div>
+    <div class="s-qsource" id="sg-qsource"></div>
+    <div class="choices" id="sg-choices"></div>
+    <div class="s-feedback" id="sg-feedback">
+      <div class="s-fb-head" id="sg-fb-head"></div>
+      <div id="sg-fb-body"></div>
+      <div class="s-fb-cite" id="sg-fb-cite"></div>
+    </div>
+    <div class="waiting-next" id="sg-waiting-next">
+      <div class="wn-icon">⏳</div>
+      <div class="wn-text">Waiting for instructor to advance...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ STUDENT RESULTS ══════ -->
+<div id="screen-student-results" class="screen">
+  <div class="top-bar" style="background:var(--teal);">
+    <div><div class="top-bar-title">Game Over!</div><div class="top-bar-sub">Final Results</div></div>
+  </div>
+  <div style="padding:20px;">
+    <div class="sr-header">
+      <div class="sr-name" id="sr-name"></div>
+      <div class="sr-score-big" id="sr-score"></div>
+      <div class="sr-score-label">points</div>
+      <div style="font-size:14px;color:var(--gold);margin-top:6px;" id="sr-rank"></div>
+    </div>
+    <div class="sr-stats">
+      <div class="sr-stat"><div class="sr-stat-num" id="sr-correct">0</div><div class="sr-stat-label">Correct</div></div>
+      <div class="sr-stat"><div class="sr-stat-num" id="sr-streak">0</div><div class="sr-stat-label">Best Streak</div></div>
+      <div class="sr-stat"><div class="sr-stat-num" id="sr-pct">0%</div><div class="sr-stat-label">Accuracy</div></div>
+    </div>
+    <div class="final-lb-title">🏆 Final Leaderboard</div>
+    <div class="final-lb" id="final-lb"></div>
+    <button class="btn-outline" onclick="showScreen('landing')">Play Again →</button>
+  </div>
+</div>
+
+<!-- ══════ HOST RESULTS ══════ -->
+<div id="screen-host-results" class="screen">
+  <div class="top-bar" style="background:var(--teal);">
+    <div><div class="top-bar-title">Game Complete!</div><div class="top-bar-sub" id="hr-session-info">Session results</div></div>
+  </div>
+  <div style="padding:20px;">
+    <div class="hr-title">Final Leaderboard</div>
+    <div class="hr-sub" id="hr-sub"></div>
+    <div class="podium" id="hr-podium"></div>
+    <div class="hr-full-lb" id="hr-full-lb"></div>
+    <div class="hr-btns">
+      <button class="btn-primary" onclick="hostNewSession()">New Session →</button>
+      <button class="btn-outline" onclick="showScreen('landing')">Home</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ CONFIRM OVERLAY ══════ -->
+<div class="overlay" id="overlay-confirm">
+  <div class="overlay-card">
+    <div class="overlay-title">End Session?</div>
+    <div class="overlay-body">This will end the game for all students and show final results.</div>
+    <div class="overlay-btns">
+      <button class="btn-primary" onclick="endSession()">Yes, End Session</button>
+      <button class="btn-outline" onclick="hideOverlay()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+// ⚙️  FIREBASE CONFIG — Replace with your own values from Firebase Console
+//     Instructions included at the bottom of this file
+// ══════════════════════════════════════════════════════════════════════════════
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyAhZd7pCbvhq7gLdvx7APmq5cugvx_tFJ4",
+  authDomain:        "ceg-module-7.firebaseapp.com",
+  databaseURL:       "https://ceg-module-7-default-rtdb.firebaseio.com",
+  projectId:         "ceg-module-7",
+  storageBucket:     "ceg-module-7.firebasestorage.app",
+  messagingSenderId: "498924218949",
+  appId:             "1:498924218949:web:48daf812491a2a7d2e912c"
+};
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── QUESTION BANK (30 questions from Module 7) ────────────────────────────
+const QUESTIONS = [
+  { cat:"Regulatory Framework", q:"Which regulation governs resident protection and worksite containment for HUD-assisted housing?", choices:["Cal/OSHA § 1532.1","Title 17 CCR","HUD Guidelines Chapter 8","EPA RRP Rule"], correct:2, explain:"HUD Guidelines Chapter 8 covers resident protection and worksite containment. Required for federally assisted housing and adopted by California's Title 17.", source:"HUD Guidelines 2012, Ch. 8 | Title 17 CCR § 36100" },
+  { cat:"Regulatory Framework", q:"In California, does HUD Table 8.1 apply ONLY to federally funded projects?", choices:["Yes — HUD rules only apply when federal money is involved","No — Title 17 CCR § 36100 adopts HUD containment standards for ALL pre-1978 residential and public buildings in CA","Only if CDPH requires it on Form 8551","Only for projects over $25,000"], correct:1, explain:"Title 17 CCR § 36100 references HUD Guidelines directly. HUD Table 8.1 is the containment standard used in California even on non-federally funded jobs.", source:"Title 17 CCR § 36100 | HUD Guidelines 2012 Ch. 8" },
+  { cat:"Regulatory Framework", q:"Cal/OSHA § 1532.1 primarily governs which aspect of a lead job?", choices:["Resident relocation requirements","Worksite containment levels","Worker protection from airborne lead","HUD Table selection"], correct:2, explain:"Cal/OSHA § 1532.1 governs worker protection from airborne lead. Applies to ALL construction work where lead exposure is possible.", source:"Cal/OSHA § 1532.1 | See Module on Trigger Tasks" },
+  { cat:"Regulatory Framework", q:"Which regulation applies to ALL pre-1978 residential AND public buildings in California?", choices:["HUD Guidelines Ch. 8","EPA RRP Rule","Title 17 CCR (CDPH)","Cal/OSHA § 1532.1"], correct:2, explain:"Title 17 CCR (CDPH) applies to ALL pre-1978 residential and public buildings in California — not just federally funded ones.", source:"Title 17 CCR | HUD Guidelines Ch. 8" },
+  { cat:"Regulatory Framework", q:"On a private pre-1978 CA home with NO federal funding — which containment standard applies?", choices:["No containment standard — only Cal/OSHA applies","HUD Table 8.1 via Title 17 CCR","EPA RRP Rule only","Only local ordinances"], correct:1, explain:"Even with no federal funding, Title 17 CCR § 36100 requires you to use HUD containment standards.", source:"Title 17 CCR § 36100 | HUD Guidelines 2012" },
+  { cat:"Table 8.1 — Interior", q:"Interior job: 1.5 sq ft disturbed (Level 1). What is the poly containment rule?", choices:["2 layers covering entire room","1 layer extending 5 ft beyond perimeter of treated area","No poly required under 2 sq ft","Poly on floor and walls"], correct:1, explain:"Level 1 (≤ 2 sq ft): Single layer poly on floor extending 5 ft beyond the perimeter of the treated area in all directions.", source:"HUD Guidelines Ch. 8, Table 8.1 Level 1" },
+  { cat:"Table 8.1 — Interior", q:"At Level 1, must you cover doorways with poly?", choices:["Yes — all doorways must be sealed","Yes — use Z-fold airlock","No — poly on doorways not required; low physical barrier recommended","Yes — only the doorway adjacent to work"], correct:2, explain:"At Level 1, no poly on doorways is required. A low physical barrier is recommended to prevent inadvertent access.", source:"HUD Guidelines Ch. 8, Table 8.1 Level 1" },
+  { cat:"Table 8.1 — Interior", q:"Where must warning signs be posted for a Level 1 interior job?", choices:["On the building exterior","At every entrance to the dwelling","At entry to the room only","Warning signs not required at Level 1"], correct:2, explain:"At Level 1, warning signs are required at entry to the room only — not on the building exterior.", source:"HUD Guidelines Ch. 8, Table 8.1 Level 1" },
+  { cat:"Table 8.1 — Interior", q:"Dry scraping and power tools on a large wall — which HUD Table 8.1 level applies?", choices:["Level 1","Level 2","Level 3","Level 4"], correct:2, explain:"Level 3 applies to high-dust methods: dry scraping, power tools, component replacement, demolition. Requires 2 layers poly on entire floor with Z-fold airlock.", source:"HUD Guidelines Ch. 8, Table 8.1 Level 3" },
+  { cat:"Table 8.1 — Interior", q:"At Level 3 (high-dust), what must happen to residents?", choices:["May remain if they stay out of the room","Must leave the dwelling for the day","Must be permanently relocated","No restriction on where residents can be"], correct:1, explain:"At Level 3, residents must leave the dwelling for the day and cannot return until after cleanup and clearance.", source:"HUD Guidelines Ch. 8, Table 8.1 Level 3" },
+  { cat:"Table 8.1 — Interior", q:"Full abatement with demolition and paint removal requires which level?", choices:["Level 2","Level 3","Level 4","Supervisor's choice"], correct:2, explain:"Level 4 is for extensive paint removal, full abatement, and demolition. Requires 2 layers poly on floors AND walls, full airlock, overnight resident relocation.", source:"HUD Guidelines Ch. 8, Table 8.1 Level 4" },
+  { cat:"Table 8.1 — Interior", q:"At Level 4 (abatement/demolition), when can residents return?", choices:["After visual inspection by supervisor","Once work is complete","Only after clearance inspection — overnight minimum relocation required","After 24 hours regardless of clearance"], correct:2, explain:"Level 4 requires overnight minimum relocation. Residents cannot return until a clearance inspection has been passed.", source:"HUD Guidelines Ch. 8, Table 8.1 Level 4 | Title 17 CCR § 36100" },
+  { cat:"Table 8.1 — Interior", q:"Level 2 job (> 2 sq ft, low-dust). What is the ventilation requirement?", choices:["Leave HVAC running to exhaust dust","HVAC off, all vents sealed with poly","HVAC off but vents don't need sealing","Switch HVAC to recirculate mode"], correct:1, explain:"At Level 2 and above, HVAC must be turned off AND all vents sealed with poly.", source:"HUD Guidelines Ch. 8, Table 8.1 Level 2" },
+  { cat:"Table 8.2 — Exterior", q:"How far must poly extend from the structure on an exterior lead job?", choices:["5 ft in all directions","10 ft in all directions","20 ft in all directions","Only directly below the work area"], correct:1, explain:"Poly outside must extend 10 ft in all directions from the structure — covering the ground to contain falling debris and dust.", source:"HUD Guidelines Ch. 8, Table 8.2 | Title 17 CCR" },
+  { cat:"Table 8.2 — Exterior", q:"A neighbor's windows are 18 feet from your exterior work area. What must you do?", choices:["Nothing — only applies beyond 20 ft","Close those windows before work begins","Only notify the neighbor — no action required","Install poly on the neighbor's wall"], correct:1, explain:"Neighbor's windows/doors must be closed if within 20 ft of the work area. 18 ft is within that range.", source:"HUD Guidelines Ch. 8, Table 8.2 Level 2" },
+  { cat:"Table 8.2 — Exterior", q:"Wind speed is 20 mph at the job site. What do you do?", choices:["Continue but double the poly","Stop work — do not work if wind is 20 mph or more, or if it might rain","Work 2 more hours then reassess","Move work to interior"], correct:1, explain:"Do not work if wind is 20 mph or more, or if it might rain. Lead dust will spread beyond the containment area.", source:"HUD Guidelines Ch. 8, Table 8.2 | Title 17 CCR" },
+  { cat:"Table 8.2 — Exterior", q:"For full exterior abatement (Level 3), where must warning signs be posted?", choices:["At the front door only","At the 10 ft poly perimeter","At the 20 ft perimeter","On the building and at 10 ft"], correct:2, explain:"At Table 8.2 Level 3, security fencing/tape AND warning signs must be at the 20 ft perimeter.", source:"HUD Guidelines Ch. 8, Table 8.2 Level 3" },
+  { cat:"Table 8.2 — Exterior", q:"A sandbox is 15 feet from the work area. What must you do with it?", choices:["Nothing — it's outside the 10 ft poly zone","Seal it in poly OR remove it at least 20 feet away","Cover with a tarp","Only address if children are present"], correct:1, explain:"All equipment, toys, and sandboxes must be sealed in poly or removed at least 20 feet away — regardless of current distance.", source:"HUD Guidelines Ch. 8, Table 8.2 Level 2" },
+  { cat:"Table 8.2 — Exterior", q:"May ladders be placed on top of poly during an exterior job?", choices:["Yes — safest position","Yes — if poly is 6 mil or thicker","No — ladders must NOT be placed on top of poly","Only for Level 1 jobs"], correct:2, explain:"Ladders must NOT be placed on top of poly. Set ladders on plywood outside the containment area.", source:"HUD Guidelines Ch. 8, Table 8.2 | Title 17 CCR" },
+  { cat:"Table 8.3 — Windows", q:"For a window job, poly must extend how far in all directions from the window?", choices:["2 ft interior only","5 ft interior, 10 ft exterior","5 ft in ALL directions — both interior AND exterior","10 ft in all directions"], correct:2, explain:"HUD Table 8.3: poly extends 5 ft in ALL directions from the window — both interior floor and exterior ground.", source:"HUD Guidelines Ch. 8, Table 8.3" },
+  { cat:"Table 8.3 — Windows", q:"For window work, interior dust level should be treated as what — regardless of window size?", choices:["Low-dust","High-dust","Medium-dust — single layer poly","No containment needed if windows closed"], correct:1, explain:"Window work interiors must always be treated as high-dust because open windows create wind-blown dust risk.", source:"HUD Guidelines Ch. 8, Table 8.3" },
+  { cat:"Table 8.3 — Windows", q:"A window opening is not in use during window replacement work. What should you do?", choices:["Leave it open for ventilation","Cover the opening with poly to prevent wind-blown dust","Board it with plywood only","No action needed"], correct:1, explain:"Window openings not in use should be sealed with poly to prevent wind-blown lead dust from entering or escaping.", source:"HUD Guidelines Ch. 8, Table 8.3" },
+  { cat:"Cleanup & Decon", q:"What is the correct interior cleanup sequence?", choices:["Wet wash → HEPA vacuum → visual check","HEPA vacuum → wet wash → HEPA vacuum again","Wet wash → dry sweep → HEPA vacuum","Dry sweep → HEPA vacuum → wet wash"], correct:1, explain:"The correct sequence is HEPA vacuum → wet wash/rinse → HEPA vacuum again. This three-step process captures all lead dust.", source:"HUD Guidelines Ch. 14 | Cal/OSHA § 1532.1(h)" },
+  { cat:"Cleanup & Decon", q:"When rolling up poly sheeting after work, what is the correct technique?", choices:["Shake the poly to remove dust, then roll","Drag it quickly to the exit","Mist down and fold dirty side in — never shake or drag","Roll from outside edge inward with no misting"], correct:2, explain:"Mist down the sheeting first, then fold dirty side in to contain debris. Never shake or drag poly.", source:"HUD Guidelines Ch. 14 | Cal/OSHA § 1532.1(h)" },
+  { cat:"Cleanup & Decon", q:"Which vacuum is required for lead cleanup — no exceptions?", choices:["Any commercial wet/dry shop vac","Regular household vacuum with HEPA bag","HEPA vacuum only — shop vacs not permitted","Either HEPA or shop vac depending on job size"], correct:2, explain:"HEPA vacuums only — no shop vacs. HEPA filters remove particles ≥0.3 microns at 99.97% efficiency. Shop vacs recirculate fine lead dust.", source:"HUD Guidelines Ch. 14 | Cal/OSHA § 1532.1(h)" },
+  { cat:"Cleanup & Decon", q:"May debris and poly sheeting be left outside the dwelling overnight?", choices:["Yes — if covered with another layer of poly","Yes — if the site is fenced","No — must not be left outside overnight","Only for 24 hours maximum"], correct:2, explain:"Neither debris nor poly sheeting may be left outside overnight or anywhere accessible to passersby — especially children.", source:"HUD Guidelines Ch. 8 | Cal/OSHA § 1532.1(h)" },
+  { cat:"Cleanup & Decon", q:"Correct order for Small Job Decon?", choices:["Wash hands → wear booties → wipe shoes → vacuum clothing","Wear booties → wipe off shoes → wash hands → vacuum clothing","Vacuum clothing → wash hands → wear booties → wipe shoes","Remove suit → vacuum PPE → wash hands → change clothes"], correct:1, explain:"Small Job Decon: (1) Wear booties, (2) Wipe off shoes, (3) Wash hands, (4) Vacuum clothing with HEPA vacuum.", source:"Cal/OSHA § 1532.1(i) | HUD Guidelines Ch. 9" },
+  { cat:"Cleanup & Decon", q:"For Large Job Sites Decon, when do you remove your respirator?", choices:["Before removing your suit — respirator comes off first","After removing suit and before washing hands","After removing suit, washing hands/face, AND changing into clean street clothes","Can be removed at any point after leaving work area"], correct:2, explain:"Large Job Decon: (1) HEPA vacuum PPE, (2) Remove suit — LEAVE RESPIRATOR ON, (3) Wash hands, respirator, and face, (4) Change clothes. Respirator comes off LAST.", source:"Cal/OSHA § 1532.1(i) | HUD Guidelines Ch. 9" },
+  { cat:"Cleanup & Decon", q:"Minimum poly thickness required for lead work?", choices:["3 mil — standard drop cloth","4 mil — contractor grade","6 mil — no drop cloths","Any thickness if doubled up"], correct:2, explain:"6 mil poly minimum — no drop cloths. Drop cloths allow lead dust to seep through to surfaces below.", source:"Cal/OSHA § 1532.1 | HUD Guidelines Ch. 14" },
+  { cat:"Cleanup & Decon", q:"In Large Job Decon, what is the FIRST step when leaving the work area?", choices:["Remove your suit","Wash your hands and face","HEPA vacuum clean your PPE while still in the work area","Remove your respirator"], correct:2, explain:"First step for Large Job Decon: HEPA vacuum clean your PPE while still inside the work area — before removing any equipment.", source:"Cal/OSHA § 1532.1(i)" }
+];
+
+// ══════════════════════════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════════════════════════
+let db = null;
+let isConfigured = false;
+let isHost = false;
+let roomCode = null;
+let roomRef = null;
+let myPlayerId = null;
+let myName = null;
+let myScore = 0;
+let myCorrect = 0;
+let myStreak = 0;
+let myBestStreak = 0;
+let currentQ = 0;
+let totalQ = 10;
+let timerSec = 20;
+let timerInterval = null;
+let answered = false;
+let gameQuestions = [];
+let joinStep1Done = false;
+let playerListeners = [];
+
+// ══════════════════════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════════════════════
+function initFirebase(config) {
+  try {
+    if (firebase.apps.length) firebase.app(); else firebase.initializeApp(config);
+    db = firebase.database();
+    isConfigured = true;
+    return true;
+  } catch(e) {
+    console.error('Firebase init error:', e);
+    return false;
+  }
+}
+
+window.onload = function() {
+  // Try to init with built-in config
+  if (FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY") {
+    initFirebase(FIREBASE_CONFIG);
+  } else {
+    // Check localStorage for saved config
+    const saved = localStorage.getItem('fb_config');
+    if (saved) {
+      try { initFirebase(JSON.parse(saved)); } catch(e) {}
+    }
+  }
+  if (!isConfigured) {
+    document.getElementById('config-banner').classList.add('show');
+  }
+  // Check URL for room code (student scanned QR)
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('room');
+  if (code) {
+    roomCode = code.toUpperCase();
+    showScreen('join');
+    document.getElementById('join-code-input').value = roomCode;
+    document.getElementById('join-code-input').style.display = 'none';
+    document.getElementById('join-name-input').style.display = 'block';
+    document.getElementById('join-btn').textContent = 'Join Session →';
+    joinStep1Done = true;
+  }
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════════════════════════════
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function goInstructor() {
+  if (!isConfigured) { showScreen('setup'); return; }
+  createSession();
+}
+
+function goStudent() {
+  if (!isConfigured) { showScreen('setup'); return; }
+  showScreen('join');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FIREBASE CONFIG SAVE
+// ══════════════════════════════════════════════════════════════════════════════
+function saveFirebaseConfig() {
+  const cfg = {
+    apiKey: document.getElementById('cfg-apiKey').value.trim(),
+    authDomain: document.getElementById('cfg-authDomain').value.trim(),
+    databaseURL: document.getElementById('cfg-databaseURL').value.trim(),
+    projectId: document.getElementById('cfg-projectId').value.trim(),
+  };
+  if (!cfg.apiKey || !cfg.databaseURL) {
+    alert('Please fill in at least API Key and Database URL');
+    return;
+  }
+  if (initFirebase(cfg)) {
+    localStorage.setItem('fb_config', JSON.stringify(cfg));
+    document.getElementById('config-banner').classList.remove('show');
+    alert('Connected! Firebase is ready.');
+    showScreen('landing');
+  } else {
+    alert('Connection failed. Please check your config values.');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SESSION SETTINGS
+// ══════════════════════════════════════════════════════════════════════════════
+function setNumQ(n, btn) {
+  totalQ = n;
+  document.querySelectorAll('#btn-q10,#btn-q20,#btn-q30').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+function setTimer(t, btn) {
+  timerSec = t;
+  document.querySelectorAll('#btn-t20,#btn-t15,#btn-t0').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CREATE SESSION (HOST)
+// ══════════════════════════════════════════════════════════════════════════════
+function generateCode() {
+  const n = Math.floor(1000 + Math.random() * 9000);
+  return 'LEAD-' + n;
+}
+
+function createSession() {
+  isHost = true;
+  roomCode = generateCode();
+  roomRef = db.ref('rooms/' + roomCode);
+
+  const qs = QUESTIONS.sort(() => Math.random() - 0.5).slice(0, Math.min(30, QUESTIONS.length));
+  gameQuestions = qs;
+
+  roomRef.set({
+    status: 'lobby',
+    hostOnline: true,
+    currentQ: 0,
+    totalQ: totalQ,
+    timerSec: timerSec,
+    questions: qs,
+    players: {},
+    createdAt: Date.now()
+  });
+
+  // Auto-cleanup after 4 hours
+  setTimeout(() => { if (roomRef) roomRef.remove(); }, 4 * 60 * 60 * 1000);
+
+  setupHostLobby();
+}
+
+function setupHostLobby() {
+  document.getElementById('room-code-display').textContent = roomCode;
+  document.getElementById('hg-room-badge').textContent = roomCode;
+
+  const pageUrl = window.location.href.split('?')[0];
+  const joinUrl = pageUrl + '?room=' + roomCode;
+  document.getElementById('room-url-display').textContent = joinUrl;
+
+  // Generate QR code
+  document.getElementById('qr-container').innerHTML = '';
+  new QRCode(document.getElementById('qr-container'), {
+    text: joinUrl,
+    width: 160, height: 160,
+    colorDark: '#1A2E4A', colorLight: '#FFFFFF',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+
+  showScreen('host-lobby');
+
+  // Listen for players joining
+  roomRef.child('players').on('value', snap => {
+    const players = snap.val() || {};
+    const names = Object.values(players).map(p => p.name).filter(Boolean);
+    renderPlayerChips(names);
+    document.getElementById('host-player-count-badge').textContent = names.length + ' joined';
+    document.getElementById('players-count-text').textContent = names.length + ' player' + (names.length !== 1 ? 's' : '');
+    const startBtn = document.getElementById('start-game-btn');
+    if (names.length > 0) {
+      startBtn.disabled = false;
+      startBtn.textContent = 'Start Game → (' + names.length + ' players)';
+    } else {
+      startBtn.disabled = true;
+      startBtn.textContent = 'Waiting for players...';
+    }
+  });
+}
+
+function renderPlayerChips(names) {
+  const grid = document.getElementById('players-grid');
+  if (names.length === 0) {
+    grid.innerHTML = '<div class="waiting-msg" style="grid-column:1/-1;">Students will appear here as they join</div>';
+    return;
+  }
+  grid.innerHTML = names.map(n => `<div class="player-chip">${n}</div>`).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// HOST GAME CONTROL
+// ══════════════════════════════════════════════════════════════════════════════
+function hostStartGame() {
+  const qSubset = gameQuestions.slice(0, totalQ);
+  roomRef.update({
+    status: 'question',
+    currentQ: 0,
+    totalQ: totalQ,
+    timerSec: timerSec,
+    questions: qSubset,
+    gameStartedAt: Date.now()
+  });
+  currentQ = 0;
+  gameQuestions = qSubset;
+  showScreen('host-game');
+  renderHostQuestion();
+  startHostListeners();
+}
+
+function renderHostQuestion() {
+  const q = gameQuestions[currentQ];
+  const total = gameQuestions.length;
+
+  document.getElementById('hg-title').textContent = 'Question ' + (currentQ+1) + ' of ' + total;
+  document.getElementById('hg-qnum').textContent = (currentQ+1) + '/' + total;
+  document.getElementById('hg-qtext').textContent = q.q;
+  document.getElementById('hg-qanswer').textContent = '';
+  document.getElementById('hg-qcite').textContent = q.source;
+  document.getElementById('hg-sub').textContent = '0 answered';
+  document.getElementById('hg-response-fill').style.width = '0%';
+  document.getElementById('hg-response-count').textContent = '0 / 0';
+  document.getElementById('hg-next-btn').textContent = 'Reveal Answer & Next →';
+
+  // Render choices
+  const letters = ['A','B','C','D'];
+  const order = [0,1,2,3].sort(() => Math.random() - 0.5);
+  const grid = document.getElementById('hg-answer-grid');
+  grid.innerHTML = order.map((ci, i) => {
+    const isC = ci === q.correct;
+    return `<div class="host-ans-btn ${isC ? 'correct-ans' : 'wrong-ans'}">${letters[i]}. ${q.choices[ci]}</div>`;
+  }).join('');
+
+  // Timer display
+  if (timerSec > 0) {
+    let t = timerSec;
+    document.getElementById('hg-timer-display').textContent = t;
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      t--;
+      document.getElementById('hg-timer-display').textContent = t;
+      if (t <= 0) clearInterval(timerInterval);
+    }, 1000);
+  } else {
+    document.getElementById('hg-timer-display').textContent = '∞';
+  }
+
+  // Write question state to Firebase
+  roomRef.update({ status: 'question', currentQ: currentQ, answeredCount: 0 });
+  roomRef.child('answers/' + currentQ).remove();
+}
+
+function startHostListeners() {
+  // Listen for student answers on current question
+  roomRef.on('value', snap => {
+    const data = snap.val();
+    if (!data) return;
+
+    const players = data.players || {};
+    const totalPlayers = Object.keys(players).length;
+    const answers = (data.answers && data.answers[currentQ]) || {};
+    const ansCount = Object.keys(answers).length;
+
+    document.getElementById('hg-sub').textContent = ansCount + ' answered';
+    document.getElementById('hg-response-count').textContent = ansCount + ' / ' + totalPlayers;
+    if (totalPlayers > 0) {
+      document.getElementById('hg-response-fill').style.width = Math.round(ansCount/totalPlayers*100) + '%';
+    }
+
+    // Live leaderboard
+    const scores = Object.entries(players)
+      .map(([id, p]) => ({ name: p.name, score: p.score || 0 }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 8);
+
+    const medals = ['🥇','🥈','🥉'];
+    document.getElementById('hg-live-lb').innerHTML = scores.map((p, i) => `
+      <div class="lb-row">
+        <div class="lb-rank ${i===0?'gold':i===1?'silver':i===2?'bronze':''}">${medals[i] || (i+1)}</div>
+        <div class="lb-name">${p.name}</div>
+        <div class="lb-score">${p.score}</div>
+      </div>`).join('') || '<div style="color:var(--warm);font-size:13px;padding:8px 0;">Waiting for answers...</div>';
+  });
+}
+
+function hostNextQuestion() {
+  clearInterval(timerInterval);
+  // Reveal answer text
+  const q = gameQuestions[currentQ];
+  document.getElementById('hg-qanswer').textContent = '✓ ' + q.choices[q.correct];
+
+  currentQ++;
+  if (currentQ >= gameQuestions.length) {
+    roomRef.update({ status: 'finished' });
+    setTimeout(showHostResults, 1500);
+    return;
+  }
+
+  roomRef.update({ status: 'question', currentQ: currentQ });
+  setTimeout(renderHostQuestion, 600);
+}
+
+function showHostResults() {
+  roomRef.once('value', snap => {
+    const data = snap.val() || {};
+    const players = data.players || {};
+    const sorted = Object.values(players).sort((a,b) => (b.score||0)-(a.score||0));
+    const total = gameQuestions.length;
+
+    document.getElementById('hr-session-info').textContent = roomCode + ' · ' + sorted.length + ' players';
+    document.getElementById('hr-sub').textContent = total + ' questions · ' + sorted.length + ' students';
+
+    // Podium
+    const podiumEl = document.getElementById('hr-podium');
+    const top3 = sorted.slice(0,3);
+    const podiumOrder = top3.length >= 2 ? [top3[1], top3[0], top3[2]].filter(Boolean) : top3;
+    const podiumClass = top3.length >= 2 ? ['p2','p1','p3'] : ['p1'];
+    const podiumEmojis = top3.length >= 2 ? ['🥈','🥇','🥉'] : ['🥇'];
+    podiumEl.innerHTML = podiumOrder.map((p, i) => `
+      <div class="podium-spot ${podiumClass[i]}">
+        <div class="podium-name">${p.name}</div>
+        <div class="podium-score">${p.score||0} pts</div>
+        <div class="podium-block">${podiumEmojis[i]}</div>
+      </div>`).join('');
+
+    // Full leaderboard
+    document.getElementById('hr-full-lb').innerHTML = sorted.map((p,i) => `
+      <div class="hr-lb-row">
+        <div class="hrlb-rank">${i+1}</div>
+        <div class="hrlb-name">${p.name}</div>
+        <div class="hrlb-correct">${p.correct||0}/${total} correct</div>
+        <div class="hrlb-score">${p.score||0} pts</div>
+      </div>`).join('');
+
+    showScreen('host-results');
+    if (sorted.length > 0 && (sorted[0].score||0) > 0) launchConfetti();
+  });
+}
+
+function hostNewSession() {
+  if (roomRef) roomRef.update({ status: 'closed' });
+  roomRef = null;
+  roomCode = null;
+  createSession();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// STUDENT JOIN
+// ══════════════════════════════════════════════════════════════════════════════
+function formatRoomCode(input) {
+  let v = input.value.toUpperCase().replace(/[^A-Z0-9-]/g, '');
+  input.value = v;
+}
+
+function joinStep() {
+  if (!joinStep1Done) {
+    // Step 1: validate room code
+    const code = document.getElementById('join-code-input').value.trim().toUpperCase();
+    if (!code) { document.getElementById('join-error').textContent = 'Please enter a room code'; return; }
+    document.getElementById('join-error').textContent = '';
+    document.getElementById('join-btn').textContent = 'Checking...';
+    document.getElementById('join-btn').disabled = true;
+
+    db.ref('rooms/' + code).once('value', snap => {
+      document.getElementById('join-btn').disabled = false;
+      if (!snap.exists()) {
+        document.getElementById('join-error').textContent = 'Room not found. Check the code and try again.';
+        document.getElementById('join-btn').textContent = 'Find Session →';
+        return;
+      }
+      const status = snap.val().status;
+      if (status === 'finished' || status === 'closed') {
+        document.getElementById('join-error').textContent = 'That session has already ended.';
+        document.getElementById('join-btn').textContent = 'Find Session →';
+        return;
+      }
+      // Room found — show name input
+      roomCode = code;
+      joinStep1Done = true;
+      document.getElementById('join-code-input').style.display = 'none';
+      document.getElementById('join-name-input').style.display = 'block';
+      document.getElementById('join-name-input').focus();
+      document.getElementById('join-btn').textContent = 'Join Session →';
+      document.getElementById('join-error').textContent = '';
+    });
+  } else {
+    // Step 2: submit name
+    const name = document.getElementById('join-name-input').value.trim();
+    if (!name) { document.getElementById('join-error').textContent = 'Please enter your name'; return; }
+    if (name.length > 20) { document.getElementById('join-error').textContent = 'Name must be 20 characters or less'; return; }
+
+    myName = name;
+    myPlayerId = 'p_' + Date.now() + '_' + Math.random().toString(36).substr(2,5);
+    myScore = 0; myCorrect = 0; myStreak = 0; myBestStreak = 0;
+
+    roomRef = db.ref('rooms/' + roomCode);
+    db.ref('rooms/' + roomCode + '/players/' + myPlayerId).set({
+      name: myName, score: 0, correct: 0, bestStreak: 0, joinedAt: Date.now()
+    });
+
+    showScreen('student-lobby');
+    document.getElementById('sl-welcome').textContent = 'You\'re in, ' + myName + '!';
+    document.getElementById('sl-room').textContent = 'Room: ' + roomCode;
+    document.getElementById('sg-name-display').textContent = myName;
+    document.getElementById('sg-room-display').textContent = 'Room: ' + roomCode;
+
+    // Listen for game start and player count
+    db.ref('rooms/' + roomCode).on('value', snap => {
+      if (!snap.exists()) return;
+      const data = snap.val();
+      const pCount = Object.keys(data.players || {}).length;
+      document.getElementById('sl-count').textContent = pCount + ' player' + (pCount!==1?'s':'') + ' joined';
+
+      if (data.status === 'question' && !document.getElementById('screen-student-game').classList.contains('active')) {
+        // Game started — load questions
+        gameQuestions = data.questions || [];
+        totalQ = data.totalQ || gameQuestions.length;
+        timerSec = data.timerSec || 20;
+        currentQ = data.currentQ || 0;
+        answered = false;
+        document.getElementById('sg-timer-ring').style.display = timerSec > 0 ? 'flex' : 'none';
+        showScreen('student-game');
+        renderStudentQuestion(currentQ);
+        listenForQuestionChanges();
+      }
+    });
+  }
+}
+
+function listenForQuestionChanges() {
+  db.ref('rooms/' + roomCode + '/currentQ').on('value', snap => {
+    const newQ = snap.val();
+    if (newQ !== null && newQ !== currentQ && document.getElementById('screen-student-game').classList.contains('active')) {
+      currentQ = newQ;
+      answered = false;
+      clearInterval(timerInterval);
+      document.getElementById('sg-feedback').classList.remove('show','correct','wrong');
+      document.getElementById('sg-waiting-next').classList.remove('show');
+      renderStudentQuestion(currentQ);
+    }
+  });
+
+  db.ref('rooms/' + roomCode + '/status').on('value', snap => {
+    if (snap.val() === 'finished') {
+      clearInterval(timerInterval);
+      setTimeout(showStudentResults, 800);
+    }
+  });
+}
+
+function renderStudentQuestion(idx) {
+  const q = gameQuestions[idx];
+  if (!q) return;
+  const total = gameQuestions.length;
+
+  document.getElementById('sg-qnum').textContent = 'Question ' + (idx+1) + ' of ' + total;
+  document.getElementById('sg-cat').textContent = q.cat;
+  document.getElementById('sg-qtext').textContent = q.q;
+  document.getElementById('sg-qsource').textContent = q.source;
+  document.getElementById('sg-progress').style.width = (idx/total*100) + '%';
+  document.getElementById('sg-score-badge').textContent = myScore + ' pts';
+
+  // Shuffle choices
+  const letters = ['A','B','C','D'];
+  const order = [0,1,2,3].sort(() => Math.random() - 0.5);
+  const shuffled = order.map(i => q.choices[i]);
+  const newCorrect = order.indexOf(q.correct);
+
+  const choicesEl = document.getElementById('sg-choices');
+  choicesEl.innerHTML = shuffled.map((c, i) => `
+    <button class="choice" onclick="studentAnswer(${i}, ${newCorrect}, this)">
+      <div class="choice-letter">${letters[i]}</div>
+      <div class="choice-text">${c}</div>
+    </button>`).join('');
+
+  answered = false;
+  document.getElementById('sg-feedback').classList.remove('show','correct','wrong');
+  document.getElementById('sg-waiting-next').classList.remove('show');
+
+  // Timer
+  clearInterval(timerInterval);
+  if (timerSec > 0) {
+    let t = timerSec;
+    updateStudentTimer(t, timerSec);
+    timerInterval = setInterval(() => {
+      t--;
+      updateStudentTimer(t, timerSec);
+      if (t <= 0) {
+        clearInterval(timerInterval);
+        if (!answered) timeExpiredStudent(newCorrect);
+      }
+    }, 1000);
+  }
+}
+
+function updateStudentTimer(t, max) {
+  const pct = t / max;
+  const offset = 113 * (1 - pct);
+  const circle = document.getElementById('sg-timer-circle');
+  circle.style.strokeDashoffset = offset;
+  circle.style.stroke = t <= 5 ? '#B84040' : (t <= 10 ? '#C9A84C' : '#0E7C7B');
+  document.getElementById('sg-timer-text').textContent = t;
+}
+
+function timeExpiredStudent(correctIdx) {
+  if (answered) return;
+  answered = true;
+  myStreak = 0;
+  document.querySelectorAll('#sg-choices .choice').forEach((c, i) => {
+    c.classList.add('disabled');
+    if (i === correctIdx) c.classList.add('reveal');
+  });
+  showStudentFeedback(false, gameQuestions[currentQ]);
+}
+
+function studentAnswer(chosen, correctIdx, el) {
+  if (answered) return;
+  answered = true;
+  clearInterval(timerInterval);
+
+  const q = gameQuestions[currentQ];
+  const isCorrect = chosen === correctIdx;
+  const choices = document.querySelectorAll('#sg-choices .choice');
+  choices.forEach((c, i) => {
+    c.classList.add('disabled');
+    if (i === correctIdx) c.classList.add('reveal');
+  });
+
+  if (isCorrect) {
+    el.classList.add('correct');
+    el.classList.add('anim-pop');
+    myStreak++;
+    myBestStreak = Math.max(myBestStreak, myStreak);
+    myCorrect++;
+    const timeBonus = timerSec > 0 ? Math.round((parseInt(document.getElementById('sg-timer-text').textContent) / timerSec) * 50) : 0;
+    const streakBonus = myStreak > 1 ? 25 * (myStreak - 1) : 0;
+    const pts = 100 + timeBonus + streakBonus;
+    myScore += pts;
+  } else {
+    el.classList.add('wrong');
+    el.classList.add('anim-shake');
+    myStreak = 0;
+  }
+
+  // Update score in Firebase
+  db.ref('rooms/' + roomCode + '/players/' + myPlayerId).update({
+    score: myScore, correct: myCorrect, bestStreak: myBestStreak
+  });
+  // Record answer
+  db.ref('rooms/' + roomCode + '/answers/' + currentQ + '/' + myPlayerId).set({
+    correct: isCorrect, time: Date.now()
+  });
+
+  document.getElementById('sg-score-badge').textContent = myScore + ' pts';
+  showStudentFeedback(isCorrect, q);
+}
+
+function showStudentFeedback(correct, q) {
+  const fb = document.getElementById('sg-feedback');
+  fb.className = 's-feedback show ' + (correct ? 'correct' : 'wrong');
+  document.getElementById('sg-fb-head').textContent = correct
+    ? ('✓ Correct!' + (myStreak > 1 ? ' 🔥 ' + myStreak + ' in a row!' : ''))
+    : '✗ Not quite';
+  document.getElementById('sg-fb-body').textContent = q.explain;
+  document.getElementById('sg-fb-cite').textContent = q.source;
+  document.getElementById('sg-waiting-next').classList.add('show');
+}
+
+function showStudentResults() {
+  db.ref('rooms/' + roomCode + '/players').once('value', snap => {
+    const players = snap.val() || {};
+    const sorted = Object.entries(players)
+      .map(([id, p]) => ({ id, name: p.name, score: p.score||0, correct: p.correct||0 }))
+      .sort((a,b) => b.score - a.score);
+
+    const myRankIdx = sorted.findIndex(p => p.id === myPlayerId);
+    const myRank = myRankIdx + 1;
+    const total = gameQuestions.length;
+    const pct = Math.round(myCorrect / total * 100);
+
+    document.getElementById('sr-name').textContent = myName;
+    document.getElementById('sr-score').textContent = myScore;
+    document.getElementById('sr-correct').textContent = myCorrect + '/' + total;
+    document.getElementById('sr-streak').textContent = myBestStreak;
+    document.getElementById('sr-pct').textContent = pct + '%';
+
+    const medals = ['🥇','🥈','🥉'];
+    document.getElementById('sr-rank').textContent = myRank <= 3
+      ? medals[myRank-1] + ' You placed #' + myRank + ' out of ' + sorted.length + '!'
+      : 'You placed #' + myRank + ' out of ' + sorted.length;
+
+    const lbEl = document.getElementById('final-lb');
+    lbEl.innerHTML = sorted.map((p, i) => `
+      <div class="final-lb-row ${p.id === myPlayerId ? 'me' : ''}">
+        <div class="flb-rank">${medals[i] || (i+1)}</div>
+        <div class="flb-name">${p.name}${p.id === myPlayerId ? ' (you)' : ''}</div>
+        <div class="flb-score">${p.score} pts</div>
+      </div>`).join('');
+
+    showScreen('student-results');
+    if (myRank <= 3) launchConfetti();
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// UTILITIES
+// ══════════════════════════════════════════════════════════════════════════════
+function confirmEndSession() { document.getElementById('overlay-confirm').classList.add('show'); }
+function hideOverlay() { document.getElementById('overlay-confirm').classList.remove('show'); }
+
+function endSession() {
+  hideOverlay();
+  clearInterval(timerInterval);
+  if (roomRef) roomRef.update({ status: 'finished' });
+  setTimeout(showHostResults, 500);
+}
+
+function launchConfetti() {
+  const colors = ['#C9A84C','#0E7C7B','#1A2E4A','#2E7D52','#B84040','#FFFFFF'];
+  for (let i = 0; i < 70; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti-piece';
+    el.style.cssText = `left:${Math.random()*100}vw;top:-20px;background:${colors[Math.floor(Math.random()*colors.length)]};width:${Math.random()*10+5}px;height:${Math.random()*10+5}px;border-radius:${Math.random()>.5?'50%':'2px'};animation-duration:${Math.random()*2+1.5}s;animation-delay:${Math.random()*.8}s;`;
+    document.body.appendChild(el);
+    el.addEventListener('animationend', () => el.remove());
+  }
+}
+</script>
+</body>
+</html>
+
+<!--
+════════════════════════════════════════════════════════════════════════════════
+ SETUP INSTRUCTIONS — 5 STEPS, ABOUT 5 MINUTES
+ Do this once. After that, the game works for every class forever.
+════════════════════════════════════════════════════════════════════════════════
+
+STEP 1 — Create a free Firebase project
+  1. Go to: https://console.firebase.google.com
+  2. Click "Add project"
+  3. Name it anything (e.g. "module7-game")
+  4. Disable Google Analytics (not needed) → click "Create project"
+
+STEP 2 — Create a Realtime Database
+  1. In your project, click "Build" → "Realtime Database" in the left menu
+  2. Click "Create Database"
+  3. Choose "Start in test mode" (allows read/write for 30 days — you can extend later)
+  4. Choose any location → click "Enable"
+  5. COPY the database URL — it looks like:
+     https://your-project-default-rtdb.firebaseio.com
+
+STEP 3 — Get your Firebase config
+  1. Click the gear icon (⚙) → "Project settings"
+  2. Scroll down to "Your apps"
+  3. Click the </> (Web) icon to add a web app
+  4. Give it a nickname (e.g. "game") → click "Register app"
+  5. You'll see a firebaseConfig object like this:
+
+     const firebaseConfig = {
+       apiKey: "AIzaSy...",
+       authDomain: "yourproject.firebaseapp.com",
+       databaseURL: "https://yourproject-default-rtdb.firebaseio.com",
+       projectId: "yourproject",
+       storageBucket: "yourproject.appspot.com",
+       messagingSenderId: "123456789",
+       appId: "1:123456789:web:abcdef"
+     };
+
+STEP 4 — Paste config into this file
+  1. Open this HTML file in a text editor
+  2. Find the section near the top of the <script> that says:
+       const FIREBASE_CONFIG = { apiKey: "YOUR_API_KEY", ...
+  3. Replace all the "YOUR_..." values with your actual values
+  4. Save the file
+
+STEP 5 — Host it (free, 2 minutes)
+  Option A — GitHub Pages (recommended):
+    1. Create a free account at github.com
+    2. Create a new repository (click + → New repository)
+    3. Name it anything, make it Public
+    4. Upload your HTML file (drag and drop onto the page)
+    5. Go to Settings → Pages → Source: "Deploy from branch" → main → Save
+    6. Your game URL will be: https://yourusername.github.io/your-repo-name/module7_multiplayer.html
+    7. That's it — share that URL with all your instructors. Done forever.
+
+  Option B — Share the file directly:
+    If all instructors are on the same network, one person hosts on their laptop
+    and students connect to the local IP. This works but requires more setup.
+
+EXTENDING TEST MODE (after 30 days):
+  In Firebase Console → Realtime Database → Rules → change "now + 30d..." to a future date
+  Or set proper security rules. For a classroom game, test mode is fine for years.
+
+MULTIPLE SIMULTANEOUS CLASSES:
+  Each class gets its own auto-generated room code (e.g. LEAD-4829).
+  They are completely isolated — different instructors can run sessions
+  at the same time with no interference.
+
+QUESTIONS OR PROBLEMS:
+  The game will show a red banner if Firebase is not configured.
+  If students can't join, check that the Database URL matches exactly.
+════════════════════════════════════════════════════════════════════════════════
+-->

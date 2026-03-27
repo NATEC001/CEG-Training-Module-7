@@ -935,6 +935,7 @@ function hostRevealAnswer(order, q) {
       if (a.chosen !== undefined && a.chosen >= 0 && a.chosen < 4) counts[a.chosen]++;
     });
     const total = Object.keys(answers).length || 1;
+    const letters = ['A','B','C','D'];
     const correctAnswerText = q.choices[q.correct];
     const pollHtml = order.map((choiceText, i) => {
       const isCorrect = choiceText === correctAnswerText;

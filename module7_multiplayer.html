@@ -168,7 +168,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .choice-letter { width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; background: var(--cream); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--warm); margin-top: 1px; }
 .choice-text { flex: 1; }
 .choice:hover { border-color: var(--teal); }
-.choice.selected { border-color: var(--teal); background: rgba(14,124,123,.08); }
+.choice.selected { border-color: rgba(0,0,0,.15); background: rgba(0,0,0,.04); }
 .choice.correct { border-color: var(--green); background: rgba(46,125,82,.12); }
 .choice.correct .choice-letter { background: var(--green); color: white; }
 .choice.wrong { border-color: var(--red); background: rgba(184,64,64,.1); }
@@ -349,11 +349,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         <div class="setting-btn" id="btn-q20" onclick="setNumQ(20, this)">20 Questions</div>
         <div class="setting-btn" id="btn-q30" onclick="setNumQ(30, this)">All 30</div>
       </div>
-      <div class="settings-row">
-        <div class="setting-btn active" id="btn-t20" onclick="setTimer(20, this)">20 sec timer</div>
-        <div class="setting-btn" id="btn-t15" onclick="setTimer(15, this)">15 sec timer</div>
-        <div class="setting-btn" id="btn-t0" onclick="setTimer(0, this)">No timer</div>
-      </div>
+
       <button class="btn-primary" id="start-game-btn" onclick="hostStartGame()" disabled>
         Waiting for players...
       </button>
@@ -371,7 +367,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <div class="host-game-body">
     <div class="q-progress">
       <div><div class="q-progress-num" id="hg-qnum">1/10</div><div class="q-progress-label">Question</div></div>
-      <div style="text-align:right"><div class="q-progress-num" id="hg-timer-display">--</div><div class="q-progress-label">Seconds</div></div>
+      
     </div>
 
     <div class="host-q-card">
@@ -595,7 +591,7 @@ let myStreak = 0;
 let myBestStreak = 0;
 let currentQ = 0;
 let totalQ = 10;
-let timerSec = 20;
+let timerSec = 0;
 let timerInterval = null;
 let answered = false;
 let gameQuestions = [];
@@ -700,7 +696,7 @@ function checkSession() {
           currentQ = snap.val().currentQ || 0;
           answered = false;
           answerRevealed = false;
-          document.getElementById('sg-timer-ring').style.display = timerSec > 0 ? 'flex' : 'none';
+          document.getElementById('sg-timer-ring').style.display = 'none';
           showScreen('student-game');
           renderStudentQuestion(currentQ);
           listenForQuestionChanges();
@@ -785,11 +781,7 @@ function setNumQ(n, btn) {
   document.querySelectorAll('#btn-q10,#btn-q20,#btn-q30').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
 }
-function setTimer(t, btn) {
-  timerSec = t;
-  document.querySelectorAll('#btn-t20,#btn-t15,#btn-t0').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-}
+
 
 // ══════════════════════════════════════════════════════════════════════════════
 // CREATE SESSION (HOST)
@@ -859,7 +851,7 @@ function hostStartGame() {
   const qSubset = gameQuestions.slice(0, totalQ);
   roomRef.update({
     status: 'question', currentQ: 0, totalQ: totalQ,
-    timerSec: timerSec, questions: qSubset,
+    timerSec: 0, questions: qSubset,
     revealed: false, gameStartedAt: Date.now()
   });
   currentQ = 0;
@@ -1147,7 +1139,7 @@ function listenForGameStart() {
       currentQ = data.currentQ || 0;
       answered = false;
       answerRevealed = false;
-      document.getElementById('sg-timer-ring').style.display = timerSec > 0 ? 'flex' : 'none';
+      document.getElementById('sg-timer-ring').style.display = 'none';
       showScreen('student-game');
       renderStudentQuestion(currentQ, data.choiceOrder);
       listenForQuestionChanges();
@@ -1240,15 +1232,6 @@ function renderStudentQuestion(idx, choiceOrder) {
   document.getElementById('sg-waiting-next').classList.remove('show');
 
   clearInterval(timerInterval);
-  if (timerSec > 0) {
-    let t = timerSec;
-    updateStudentTimer(t, timerSec);
-    timerInterval = setInterval(() => {
-      t--;
-      updateStudentTimer(t, timerSec);
-      if (t <= 0) { clearInterval(timerInterval); }
-    }, 1000);
-  }
 }
 
 function updateStudentTimer(t, max) {

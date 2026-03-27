@@ -929,10 +929,10 @@ function hostRevealAnswer(order, q) {
   clearInterval(timerInterval);
   answerRevealed = true;
 
-  // Show correct answer on instructor screen
-  document.getElementById('hg-qanswer').textContent = '✓ Correct: ' + q.choices[q.correct];
+  // Show correct answer text
+  document.getElementById('hg-qanswer').textContent = 'Correct: ' + q.choices[q.correct];
 
-  // Highlight correct choice on instructor grid
+  // Highlight correct/wrong choices on instructor grid
   const letters = ['A','B','C','D'];
   order.forEach((ci, i) => {
     const btn = document.getElementById('hg-choice-' + i);
@@ -941,14 +941,49 @@ function hostRevealAnswer(order, q) {
     }
   });
 
-  // Tell Firebase answer is revealed — students can now see correct answer (FIX 4)
+  // Tell Firebase answer is revealed
   roomRef.update({ revealed: true });
+
+  // Build poll from answers already submitted
+  roomRef.child('answers/' + currentQ).once('value', snap => {
+    const answers = snap.val() || {};
+    const counts = [0,0,0,0]; // counts per displayed position A B C D
+    Object.values(answers).forEach(a => {
+      if (a.chosen !== undefined && a.chosen >= 0 && a.chosen < 4) counts[a.chosen]++;
+    });
+    const total = Object.keys(answers).length || 1;
+    const pollHtml = counts.map((cnt, i) => {
+      const isCorrect = order[i] === q.correct;
+      const pct = Math.round(cnt / total * 100);
+      const barColor = isCorrect ? '#2E7D52' : '#B84040';
+      return '<div style="margin-bottom:8px;">' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">' +
+        '<span style="font-weight:700;color:' + (isCorrect ? '#2E7D52' : '#94918A') + ';width:20px;">' + letters[i] + '</span>' +
+        '<span style="font-size:12px;color:#fff;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + q.choices[order[i]] + '</span>' +
+        '<span style="font-size:13px;font-weight:700;color:' + (isCorrect ? '#7ddba0' : '#fff') + ';min-width:40px;text-align:right;">' + cnt + ' (' + pct + '%)</span>' +
+        '</div>' +
+        '<div style="height:18px;background:rgba(255,255,255,.1);border-radius:4px;overflow:hidden;">' +
+        '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:4px;transition:width .6s ease;"></div>' +
+        '</div></div>';
+    }).join('');
+
+    document.getElementById('hg-live-lb').innerHTML =
+      '<div style="font-size:12px;font-weight:700;color:#C9A84C;margin-bottom:8px;">POLL RESULTS</div>' +
+      pollHtml +
+      '<div style="border-top:1px solid rgba(255,255,255,.1);margin-top:10px;padding-top:10px;font-size:12px;font-weight:700;color:#C9A84C;margin-bottom:6px;">TOP 3</div>' +
+      buildTop3Html();
+  });
 
   // Change button to advance
   const nextBtn = document.getElementById('hg-next-btn');
   const isLast = (currentQ + 1) >= gameQuestions.length;
-  nextBtn.textContent = isLast ? 'End Game →' : 'Next Question →';
+  nextBtn.textContent = isLast ? 'End Game' : 'Next Question';
   nextBtn.onclick = function() { hostNextQuestion(); };
+}
+
+function buildTop3Html() {
+  // Build top 3 from current player scores — names shown for top 3 only
+  return ''; // Will be populated from live listener
 }
 
 function startHostListeners() {
@@ -964,16 +999,25 @@ function startHostListeners() {
     if (totalPlayers > 0) {
       document.getElementById('hg-response-fill').style.width = Math.round(ansCount/totalPlayers*100) + '%';
     }
-    const scores = Object.entries(players)
-      .map(([id, p]) => ({ name: p.name, score: p.score || 0 }))
-      .sort((a, b) => b.score - a.score).slice(0, 8);
-    const medals = ['🥇','🥈','🥉'];
-    document.getElementById('hg-live-lb').innerHTML = scores.map((p, i) => `
-      <div class="lb-row">
-        <div class="lb-rank ${i===0?'gold':i===1?'silver':i===2?'bronze':''}">${medals[i] || (i+1)}</div>
-        <div class="lb-name">${p.name}</div>
-        <div class="lb-score">${p.score}</div>
-      </div>`).join('') || '<div style="color:var(--warm);font-size:13px;padding:8px 0;">Waiting for answers...</div>';
+    if (!answerRevealed) {
+      const scores = Object.entries(players)
+        .map(([id, p]) => ({ name: p.name, score: p.score || 0 }))
+        .sort((a, b) => b.score - a.score);
+      const medals = ['🥇','🥈','🥉'];
+      const top3 = scores.slice(0,3).map((p, i) =>
+        '<div class="lb-row">' +
+        '<div class="lb-rank ' + (i===0?'gold':i===1?'silver':'bronze') + '">' + medals[i] + '</div>' +
+        '<div class="lb-name">' + p.name + '</div>' +
+        '<div class="lb-score">' + p.score + '</div></div>'
+      ).join('');
+      const others = scores.length > 3
+        ? '<div style="font-size:11px;color:var(--warm);padding:4px 0 0;">+ ' + (scores.length-3) + ' other students</div>'
+        : '';
+      document.getElementById('hg-live-lb').innerHTML =
+        '<div style="font-size:12px;font-weight:700;color:#C9A84C;margin-bottom:6px;">TOP 3</div>' +
+        (top3 || '<div style="color:var(--warm);font-size:13px;padding:8px 0;">Waiting for answers...</div>') +
+        others;
+    }
   });
 }
 
@@ -1225,32 +1269,29 @@ function studentAnswer(chosen, correctIdx, el) {
   const isCorrect = chosen === correctIdx;
   const choices = document.querySelectorAll('#sg-choices .choice');
   choices.forEach(c => c.classList.add('disabled'));
-  // FIX 4: Don't reveal correct answer yet — wait for instructor
+
+  // Neutral "locked in" style — NO green/red until instructor reveals
+  el.classList.add('selected');
+  el.classList.add('anim-pop');
+
   if (isCorrect) {
-    el.classList.add('selected');
-    el.classList.add('anim-pop');
     myStreak++;
     myBestStreak = Math.max(myBestStreak, myStreak);
     myCorrect++;
     const timeBonus = timerSec > 0 ? Math.round((parseInt(document.getElementById('sg-timer-text').textContent) / timerSec) * 50) : 0;
     const streakBonus = myStreak > 1 ? 25 * (myStreak - 1) : 0;
-    const pts = 100 + timeBonus + streakBonus;
-    myScore += pts;
-    // Show waiting message with correct/wrong indicator
-    const fb = document.getElementById('sg-feedback');
-    fb.className = 's-feedback show correct';
-    document.getElementById('sg-fb-head').textContent = '✓ Answered! ' + (myStreak > 1 ? '🔥 ' + myStreak + ' in a row!' : '');
-    document.getElementById('sg-fb-body').textContent = 'Waiting for instructor to reveal the answer...';
-    document.getElementById('sg-fb-cite').textContent = '';
+    myScore += 100 + timeBonus + streakBonus;
   } else {
-    el.classList.add('selected');
-    const fb = document.getElementById('sg-feedback');
-    fb.className = 's-feedback show wrong';
-    document.getElementById('sg-fb-head').textContent = 'Answered — waiting for reveal...';
-    document.getElementById('sg-fb-body').textContent = '';
-    document.getElementById('sg-fb-cite').textContent = '';
     myStreak = 0;
   }
+
+  // Neutral waiting message — no color hint
+  const fb = document.getElementById('sg-feedback');
+  fb.className = 's-feedback show';
+  fb.style.cssText = 'display:block;background:rgba(14,124,123,.1);border-left:4px solid #0E7C7B;color:#1A2E4A;border-radius:10px;padding:14px 16px;font-size:14px;line-height:1.5;margin-bottom:12px;';
+  document.getElementById('sg-fb-head').textContent = 'Answer locked in — waiting for instructor to reveal...';
+  document.getElementById('sg-fb-body').textContent = '';
+  document.getElementById('sg-fb-cite').textContent = '';
 
   db.ref('rooms/' + roomCode + '/players/' + myPlayerId).update({
     score: myScore, correct: myCorrect, bestStreak: myBestStreak
@@ -1261,6 +1302,7 @@ function studentAnswer(chosen, correctIdx, el) {
   document.getElementById('sg-score-badge').textContent = myScore + ' pts';
   document.getElementById('sg-waiting-next').classList.add('show');
 }
+
 
 function showStudentResults() {
   clearSession(); // FIX 3: Clear session on game end

@@ -896,7 +896,7 @@ function renderHostQuestion() {
     revealed: false,
     choiceOrder: order  // FIX 2: same order for all phones
   });
-  roomRef.child('answers/' + currentQ).remove();
+  roomRef.child('answers/' + String(currentQ)).remove();
 
   // FIX 1: Two-step button — first click reveals, second click advances
   const nextBtn = document.getElementById('hg-next-btn');
@@ -939,7 +939,7 @@ function hostRevealAnswer(order, q) {
   roomRef.update({ revealed: true });
 
   // Build poll from answers already submitted
-  roomRef.child('answers/' + currentQ).once('value', snap => {
+  roomRef.child('answers/' + String(currentQ)).once('value', snap => {
     const answers = snap.val() || {};
     const counts = [0,0,0,0]; // counts per displayed position A B C D
     Object.values(answers).forEach(a => {
@@ -997,14 +997,14 @@ function startHostListeners() {
     if (!data) return;
     const players = data.players || {};
     const totalPlayers = Object.keys(players).length;
-    const answers = (data.answers && data.answers[currentQ]) || {};
+    const answers = (data.answers && data.answers[String(currentQ)]) || {};
     const ansCount = Object.keys(answers).length;
     document.getElementById('hg-sub').textContent = ansCount + ' answered';
     document.getElementById('hg-response-count').textContent = ansCount + ' / ' + totalPlayers;
     if (totalPlayers > 0) {
       document.getElementById('hg-response-fill').style.width = Math.round(ansCount/totalPlayers*100) + '%';
     }
-    if (!answerRevealed) {
+    if (!answerRevealed && data.currentQ === currentQ) {
       const scores = Object.entries(players)
         .map(([id, p]) => ({ name: p.name, score: p.score || 0 }))
         .sort((a, b) => b.score - a.score);
@@ -1027,13 +1027,17 @@ function startHostListeners() {
 }
 
 function hostNextQuestion() {
+  // Immediately wipe poll/leaderboard before anything loads
+  answerRevealed = false;
+  document.getElementById('hg-live-lb').innerHTML = '<div style="color:var(--warm);font-size:13px;padding:8px 0;">Waiting for answers...</div>';
+  if (document.getElementById('live-lb-title')) document.getElementById('live-lb-title').textContent = '🏆 Top 3';
+
   currentQ++;
   if (currentQ >= gameQuestions.length) {
     roomRef.update({ status: 'finished' });
     setTimeout(showHostResults, 1500);
     return;
   }
-  answerRevealed = false;
   roomRef.update({ status: 'question', currentQ: currentQ, revealed: false });
   setTimeout(renderHostQuestion, 400);
 }
@@ -1322,7 +1326,7 @@ function studentAnswer(chosen, correctIdx, el) {
   db.ref('rooms/' + roomCode + '/players/' + myPlayerId).update({
     score: myScore, correct: myCorrect, bestStreak: myBestStreak
   });
-  db.ref('rooms/' + roomCode + '/answers/' + currentQ + '/' + myPlayerId).set({
+  db.ref('rooms/' + roomCode + '/answers/' + String(currentQ) + '/' + myPlayerId).set({
     correct: isCorrect, chosen: chosen, time: Date.now()
   });
   document.getElementById('sg-score-badge').textContent = myScore + ' pts';

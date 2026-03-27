@@ -167,8 +167,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .choice:active { transform: scale(.98); }
 .choice-letter { width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; background: var(--cream); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--warm); margin-top: 1px; }
 .choice-text { flex: 1; }
-.choice:hover { border-color: var(--teal); }
-.choice.selected { border-color: rgba(0,0,0,.15); background: rgba(0,0,0,.04); }
+.choice:hover { border-color: transparent; }
+.choice.selected { border-color: transparent; background: var(--white); opacity: 0.7; }
 .choice.correct { border-color: var(--green); background: rgba(46,125,82,.12); }
 .choice.correct .choice-letter { background: var(--green); color: white; }
 .choice.wrong { border-color: var(--red); background: rgba(184,64,64,.1); }
@@ -1184,16 +1184,45 @@ function revealAnswerOnPhone(choiceOrder) {
   const q = gameQuestions[currentQ];
   if (!q || !choiceOrder) return;
   const choices = document.querySelectorAll('#sg-choices .choice');
+
+  // Reset any inline styles from answer selection
+  choices.forEach(c => {
+    c.style.opacity = '';
+    c.style.borderColor = '';
+    c.style.background = '';
+  });
+
+  // Now show correct (green) and wrong (red/gray)
   choices.forEach((c, i) => {
     c.classList.add('disabled');
     if (choiceOrder[i] === q.correct) {
-      c.classList.add('reveal');
+      c.classList.add('reveal'); // green
     }
   });
-  if (!answered) {
-    // Time expired — show feedback
-    const fb = document.getElementById('sg-feedback');
+
+  // Update feedback message now that answer is revealed
+  const fb = document.getElementById('sg-feedback');
+  if (answered) {
+    // Check if student's answer was correct using stored data attribute
+    let studentWasCorrect = false;
+    choices.forEach(c => {
+      if (c.dataset.wasCorrect === 'yes') studentWasCorrect = true;
+    });
+    fb.className = 's-feedback show';
+    fb.style.cssText = '';
+    if (studentWasCorrect) {
+      fb.classList.add('correct');
+      document.getElementById('sg-fb-head').textContent = 'Correct!';
+    } else {
+      fb.classList.add('wrong');
+      document.getElementById('sg-fb-head').textContent = 'Not quite';
+    }
+    document.getElementById('sg-fb-body').textContent = q.explain;
+    document.getElementById('sg-fb-cite').textContent = q.source;
+  } else {
+    // Time expired
     fb.className = 's-feedback show wrong';
+    fb.style.cssText = '';
     document.getElementById('sg-fb-head').textContent = 'Time up!';
     document.getElementById('sg-fb-body').textContent = q.explain;
     document.getElementById('sg-fb-cite').textContent = q.source;
@@ -1253,9 +1282,10 @@ function studentAnswer(chosen, correctIdx, el) {
   const choices = document.querySelectorAll('#sg-choices .choice');
   choices.forEach(c => c.classList.add('disabled'));
 
-  // Neutral "locked in" style — NO green/red until instructor reveals
-  el.classList.add('selected');
-  el.classList.add('anim-pop');
+  // Locked in — subtle teal border, no green/red
+  el.style.borderColor = 'var(--teal)';
+  el.style.background = 'rgba(14,124,123,.06)';
+  el.dataset.wasCorrect = isCorrect ? 'yes' : 'no';
 
   if (isCorrect) {
     myStreak++;

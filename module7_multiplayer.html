@@ -666,54 +666,59 @@ function checkSession() {
   const params = new URLSearchParams(window.location.search);
   const code = params.get('room');
 
+  // If URL has a room code, always go to join screen — never try to rejoin old session
+  if (code) {
+    clearSession(); // clear any old session so QR always works fresh
+    handleURLCode(code);
+    return;
+  }
+
+  // No URL room code — check for saved session to rejoin
   if (savedRoom && savedId && savedName && isConfigured) {
-    // Try to rejoin existing session
     db.ref('rooms/' + savedRoom).once('value', snap => {
       if (snap.exists() && snap.val().status !== 'finished' && snap.val().status !== 'closed') {
         // Rejoin as same player
+        const snapData = snap.val();
         roomCode = savedRoom;
         myPlayerId = savedId;
         myName = savedName;
         roomRef = db.ref('rooms/' + roomCode);
-        const pData = snap.val().players && snap.val().players[myPlayerId];
+        const pData = snapData.players && snapData.players[myPlayerId];
         if (pData) {
           myScore = pData.score || 0;
           myCorrect = pData.correct || 0;
           myBestStreak = pData.bestStreak || 0;
         }
-        // Update lastSeen
         db.ref('rooms/' + roomCode + '/players/' + myPlayerId).update({ name: myName, lastSeen: Date.now() });
         document.getElementById('sl-welcome').textContent = 'Welcome back, ' + myName + '!';
         document.getElementById('sl-room').textContent = 'Room: ' + roomCode;
         document.getElementById('sg-name-display').textContent = myName;
         document.getElementById('sg-room-display').textContent = 'Room: ' + roomCode;
         document.getElementById('sg-score-badge').textContent = myScore + ' pts';
-        const status = snap.val().status;
-        if (status === 'question') {
-          gameQuestions = snap.val().questions || [];
-          totalQ = snap.val().totalQ || gameQuestions.length;
-          timerSec = snap.val().timerSec || 20;
-          currentQ = snap.val().currentQ || 0;
+        if (snapData.status === 'question') {
+          gameQuestions = snapData.questions || [];
+          totalQ = snapData.totalQ || gameQuestions.length;
+          timerSec = snapData.timerSec || 0;
+          currentQ = snapData.currentQ || 0;
           answered = false;
           answerRevealed = false;
           document.getElementById('sg-timer-ring').style.display = 'none';
           showScreen('student-game');
-          renderStudentQuestion(currentQ, data.choiceOrder);
+          renderStudentQuestion(currentQ); // fixed order - no choiceOrder needed
           listenForQuestionChanges();
         } else {
           showScreen('student-lobby');
           listenForGameStart();
         }
       } else {
-        // Old session gone — clear storage and show normal landing
         clearSession();
-        handleURLCode(code);
+        // Show landing — no room code in URL
+        showScreen('landing');
       }
     });
-  } else {
-    handleURLCode(code);
   }
-};
+  // else: no saved session, no URL code — stay on landing screen (default)
+}
 
 function handleURLCode(code) {
   if (code) {
@@ -1164,7 +1169,7 @@ function listenForGameStart() {
       answerRevealed = false;
       document.getElementById('sg-timer-ring').style.display = 'none';
       showScreen('student-game');
-      renderStudentQuestion(currentQ, data.choiceOrder);
+      renderStudentQuestion(currentQ);
       listenForQuestionChanges();
     }
   });
@@ -1185,7 +1190,7 @@ function listenForQuestionChanges() {
       clearInterval(timerInterval);
       document.getElementById('sg-feedback').classList.remove('show','correct','wrong');
       document.getElementById('sg-waiting-next').classList.remove('show');
-      renderStudentQuestion(currentQ, data.choiceOrder);
+      renderStudentQuestion(currentQ);
     }
 
     // FIX 4: Show correct answer on phones when instructor reveals
@@ -1254,7 +1259,7 @@ function revealAnswerOnPhone() {
 }
 
 // FIX 2: Pass choiceOrder so all phones show same choice positions
-function renderStudentQuestion(idx, choiceOrder) {
+function renderStudentQuestion(idx) {
   const q = gameQuestions[idx];
   if (!q) return;
   const total = gameQuestions.length;

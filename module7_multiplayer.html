@@ -908,19 +908,7 @@ function renderHostQuestion() {
   nextBtn.textContent = 'Reveal Answer →';
   nextBtn.onclick = function() { hostRevealAnswer(displayChoices, q); };
 
-  // Timer
-  if (timerSec > 0) {
-    let t = timerSec;
-    document.getElementById('hg-timer-display').textContent = t;
-    clearInterval(timerInterval);
-    timerInterval = setInterval(() => {
-      t--;
-      document.getElementById('hg-timer-display').textContent = t;
-      if (t <= 0) clearInterval(timerInterval);
-    }, 1000);
-  } else {
-    document.getElementById('hg-timer-display').textContent = '∞';
-  }
+  clearInterval(timerInterval);
 }
 
 // FIX 1: Separate reveal step

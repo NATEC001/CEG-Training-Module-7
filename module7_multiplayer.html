@@ -881,31 +881,34 @@ function renderHostQuestion(presetOrder) {
   document.getElementById('hg-qanswer').textContent = '';
   const letters = ['A','B','C','D'];
 
-  // Use presetOrder if provided (from hostNextQuestion), otherwise generate new one
-  const order = presetOrder ? Array.from(presetOrder) : Array.from([0,1,2,3].sort(() => Math.random() - 0.5));
+  // Shuffle choice TEXT (not indices) — store actual strings in Firebase
+  // This avoids all index/array mapping issues between instructor and student
+  const shuffledChoices = q.choices.slice().sort(() => Math.random() - 0.5);
+  // If a presetOrder (array of choice texts) was passed, use it instead
+  const displayChoices = (presetOrder && presetOrder.length === 4) ? presetOrder : shuffledChoices;
 
   const grid = document.getElementById('hg-answer-grid');
-  grid.innerHTML = order.map((ci, i) => {
-    return `<div class="host-ans-btn wrong-ans" id="hg-choice-${i}">${letters[i]}. ${q.choices[ci]}</div>`;
+  grid.innerHTML = displayChoices.map((choiceText, i) => {
+    const isCorrect = choiceText === q.choices[q.correct];
+    return `<div class="host-ans-btn wrong-ans" id="hg-choice-${i}" data-correct="${isCorrect}">${letters[i]}. ${choiceText}</div>`;
   }).join('');
 
-  // Save to Firebase — if presetOrder was passed, choiceOrder already saved atomically
-  // Only update Firebase here for the FIRST question (hostStartGame path)
+  // Save to Firebase — always save choiceOrder (as text array) for this question
   if (!presetOrder) {
     roomRef.update({
       status: 'question',
       currentQ: currentQ,
       answeredCount: 0,
       revealed: false,
-      choiceOrder: Array.from(order)
+      choiceOrder: displayChoices
     });
   }
   roomRef.child('answers/' + String(currentQ)).remove();
 
-  // FIX 1: Two-step button — first click reveals, second click advances
+  // Two-step button — first click reveals, second click advances
   const nextBtn = document.getElementById('hg-next-btn');
   nextBtn.textContent = 'Reveal Answer →';
-  nextBtn.onclick = function() { hostRevealAnswer(order, q); };
+  nextBtn.onclick = function() { hostRevealAnswer(displayChoices, q); };
 
   // Timer
   if (timerSec > 0) {
@@ -951,7 +954,7 @@ function hostRevealAnswer(order, q) {
     });
     const total = Object.keys(answers).length || 1;
     const pollHtml = counts.map((cnt, i) => {
-      const isCorrect = order[i] === q.correct;
+      const isCorrect = choiceText === correctText;
       const pct = Math.round(cnt / total * 100);
       const barColor = isCorrect ? '#2E7D52' : '#B84040';
       return '<div style="margin-bottom:8px;">' +
@@ -1043,16 +1046,16 @@ function hostNextQuestion() {
     return;
   }
 
-  // Generate choiceOrder NOW and include in same Firebase update as currentQ
-  // This ensures students receive both in one atomic update — no race condition
-  const nextOrder = Array.from([0,1,2,3].sort(() => Math.random() - 0.5));
+  // Generate shuffled choice TEXT array for next question atomically with currentQ
+  const nextQ = gameQuestions[currentQ];
+  const nextChoices = nextQ ? nextQ.choices.slice().sort(() => Math.random() - 0.5) : [];
   roomRef.update({
     status: 'question',
     currentQ: currentQ,
     revealed: false,
-    choiceOrder: nextOrder
+    choiceOrder: nextChoices
   });
-  setTimeout(() => renderHostQuestion(nextOrder), 400);
+  setTimeout(() => renderHostQuestion(nextChoices), 400);
 }
 
 function showHostResults() {
@@ -1222,10 +1225,16 @@ function revealAnswerOnPhone(choiceOrder) {
     c.style.background = '';
   });
 
-  // Now show correct (green) and wrong (red/gray)
+  const correctText = q.choices[q.correct];
+  // Convert Firebase object to array if needed
+  const choicesArr = Array.isArray(choiceOrder)
+    ? choiceOrder
+    : [choiceOrder[0], choiceOrder[1], choiceOrder[2], choiceOrder[3]];
+
+  // Now show correct (green) by matching text
   choices.forEach((c, i) => {
     c.classList.add('disabled');
-    if (choiceOrder[i] === q.correct) {
+    if (choicesArr[i] === correctText) {
       c.classList.add('reveal'); // green
     }
   });
@@ -1274,22 +1283,30 @@ function renderStudentQuestion(idx, choiceOrder) {
   document.getElementById('sg-score-badge').textContent = myScore + ' pts';
 
   const letters = ['A','B','C','D'];
-  // FIX 2: Use the choiceOrder from Firebase (same as instructor) if available
-  // Firebase may return array as object {0:x,1:x,2:x,3:x} — convert if needed
-  let order;
+
+  // choiceOrder from Firebase is an array of choice TEXT strings
+  // Convert from Firebase object format {0:text,1:text,...} if needed
+  let displayChoices;
   if (choiceOrder && typeof choiceOrder === 'object') {
-    const arr = Array.isArray(choiceOrder) ? choiceOrder : [choiceOrder[0], choiceOrder[1], choiceOrder[2], choiceOrder[3]];
-    order = (arr.length === 4 && arr.every(v => v !== undefined)) ? arr : [0,1,2,3].sort(() => Math.random() - 0.5);
+    const arr = Array.isArray(choiceOrder)
+      ? choiceOrder
+      : [choiceOrder[0], choiceOrder[1], choiceOrder[2], choiceOrder[3]];
+    displayChoices = (arr.length === 4 && arr.every(v => v !== undefined))
+      ? arr
+      : q.choices.slice().sort(() => Math.random() - 0.5);
   } else {
-    order = [0,1,2,3].sort(() => Math.random() - 0.5);
+    displayChoices = q.choices.slice().sort(() => Math.random() - 0.5);
   }
-  const newCorrect = order.indexOf(q.correct);
+
+  // Find which position the correct answer is in
+  const correctText = q.choices[q.correct];
+  const newCorrect = displayChoices.indexOf(correctText);
 
   const choicesEl = document.getElementById('sg-choices');
-  choicesEl.innerHTML = order.map((ci, i) => `
+  choicesEl.innerHTML = displayChoices.map((choiceText, i) => `
     <button class="choice" onclick="studentAnswer(${i}, ${newCorrect}, this)">
       <div class="choice-letter">${letters[i]}</div>
-      <div class="choice-text">${q.choices[ci]}</div>
+      <div class="choice-text">${choiceText}</div>
     </button>`).join('');
 
   answered = false;

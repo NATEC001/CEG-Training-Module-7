@@ -862,7 +862,7 @@ function hostStartGame() {
   startHostListeners();
 }
 
-function renderHostQuestion(presetOrder) {
+function renderHostQuestion() {
   const q = gameQuestions[currentQ];
   const total = gameQuestions.length;
 
@@ -881,11 +881,8 @@ function renderHostQuestion(presetOrder) {
   document.getElementById('hg-qanswer').textContent = '';
   const letters = ['A','B','C','D'];
 
-  // Shuffle choice TEXT (not indices) — store actual strings in Firebase
-  // This avoids all index/array mapping issues between instructor and student
-  const shuffledChoices = q.choices.slice().sort(() => Math.random() - 0.5);
-  // If a presetOrder (array of choice texts) was passed, use it instead
-  const displayChoices = (presetOrder && presetOrder.length === 4) ? presetOrder : shuffledChoices;
+  // Fixed order — no shuffling — same on instructor and all student phones
+  const displayChoices = q.choices.slice();
 
   const grid = document.getElementById('hg-answer-grid');
   grid.innerHTML = displayChoices.map((choiceText, i) => {
@@ -893,16 +890,12 @@ function renderHostQuestion(presetOrder) {
     return `<div class="host-ans-btn wrong-ans" id="hg-choice-${i}" data-correct="${isCorrect}">${letters[i]}. ${choiceText}</div>`;
   }).join('');
 
-  // Save to Firebase — always save choiceOrder (as text array) for this question
-  if (!presetOrder) {
-    roomRef.update({
-      status: 'question',
-      currentQ: currentQ,
-      answeredCount: 0,
-      revealed: false,
-      choiceOrder: displayChoices
-    });
-  }
+  roomRef.update({
+    status: 'question',
+    currentQ: currentQ,
+    answeredCount: 0,
+    revealed: false
+  });
   roomRef.child('answers/' + String(currentQ)).remove();
 
   // Two-step button — first click reveals, second click advances
@@ -1046,16 +1039,13 @@ function hostNextQuestion() {
     return;
   }
 
-  // Generate shuffled choice TEXT array for next question atomically with currentQ
-  const nextQ = gameQuestions[currentQ];
-  const nextChoices = nextQ ? nextQ.choices.slice().sort(() => Math.random() - 0.5) : [];
+  // Use fixed choice order — no shuffling needed
   roomRef.update({
     status: 'question',
     currentQ: currentQ,
-    revealed: false,
-    choiceOrder: nextChoices
+    revealed: false
   });
-  setTimeout(() => renderHostQuestion(nextChoices), 400);
+  setTimeout(() => renderHostQuestion(), 400);
 }
 
 function showHostResults() {
@@ -1202,7 +1192,7 @@ function listenForQuestionChanges() {
     if (data.revealed === true && !answerRevealed &&
         document.getElementById('screen-student-game').classList.contains('active')) {
       answerRevealed = true;
-      revealAnswerOnPhone(data.choiceOrder);
+      revealAnswerOnPhone();
     }
 
     if (data.status === 'finished') {
@@ -1213,9 +1203,9 @@ function listenForQuestionChanges() {
 }
 
 // FIX 4: Reveal correct answer on phone only when instructor triggers it
-function revealAnswerOnPhone(choiceOrder) {
+function revealAnswerOnPhone() {
   const q = gameQuestions[currentQ];
-  if (!q || !choiceOrder) return;
+  if (!q) return;
   const choices = document.querySelectorAll('#sg-choices .choice');
 
   // Reset any inline styles from answer selection
@@ -1225,16 +1215,10 @@ function revealAnswerOnPhone(choiceOrder) {
     c.style.background = '';
   });
 
-  const correctText = q.choices[q.correct];
-  // Convert Firebase object to array if needed
-  const choicesArr = Array.isArray(choiceOrder)
-    ? choiceOrder
-    : [choiceOrder[0], choiceOrder[1], choiceOrder[2], choiceOrder[3]];
-
-  // Now show correct (green) by matching text
+  // Fixed order — position i shows q.choices[i] — correct is at q.correct
   choices.forEach((c, i) => {
     c.classList.add('disabled');
-    if (choicesArr[i] === correctText) {
+    if (i === q.correct) {
       c.classList.add('reveal'); // green
     }
   });
@@ -1284,23 +1268,9 @@ function renderStudentQuestion(idx, choiceOrder) {
 
   const letters = ['A','B','C','D'];
 
-  // choiceOrder from Firebase is an array of choice TEXT strings
-  // Convert from Firebase object format {0:text,1:text,...} if needed
-  let displayChoices;
-  if (choiceOrder && typeof choiceOrder === 'object') {
-    const arr = Array.isArray(choiceOrder)
-      ? choiceOrder
-      : [choiceOrder[0], choiceOrder[1], choiceOrder[2], choiceOrder[3]];
-    displayChoices = (arr.length === 4 && arr.every(v => v !== undefined))
-      ? arr
-      : q.choices.slice().sort(() => Math.random() - 0.5);
-  } else {
-    displayChoices = q.choices.slice().sort(() => Math.random() - 0.5);
-  }
-
-  // Find which position the correct answer is in
-  const correctText = q.choices[q.correct];
-  const newCorrect = displayChoices.indexOf(correctText);
+  // Fixed order — same as instructor screen — no shuffling
+  const displayChoices = q.choices.slice();
+  const newCorrect = q.correct;
 
   const choicesEl = document.getElementById('sg-choices');
   choicesEl.innerHTML = displayChoices.map((choiceText, i) => `

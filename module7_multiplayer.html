@@ -862,7 +862,7 @@ function hostStartGame() {
   startHostListeners();
 }
 
-function renderHostQuestion() {
+function renderHostQuestion(presetOrder) {
   const q = gameQuestions[currentQ];
   const total = gameQuestions.length;
 
@@ -880,22 +880,26 @@ function renderHostQuestion() {
   if (document.getElementById('live-lb-title')) document.getElementById('live-lb-title').textContent = '🏆 Top 3';
   document.getElementById('hg-qanswer').textContent = '';
   const letters = ['A','B','C','D'];
-  // Store shuffled order in Firebase so all students get SAME order (FIX 2)
-  const order = [0,1,2,3].sort(() => Math.random() - 0.5);
+
+  // Use presetOrder if provided (from hostNextQuestion), otherwise generate new one
+  const order = presetOrder ? Array.from(presetOrder) : Array.from([0,1,2,3].sort(() => Math.random() - 0.5));
+
   const grid = document.getElementById('hg-answer-grid');
-  // Show choices on host without revealing which is correct yet
   grid.innerHTML = order.map((ci, i) => {
     return `<div class="host-ans-btn wrong-ans" id="hg-choice-${i}">${letters[i]}. ${q.choices[ci]}</div>`;
   }).join('');
 
-  // FIX 1+2: Store the shuffled order in Firebase AND set revealed=false
-  roomRef.update({
-    status: 'question',
-    currentQ: currentQ,
-    answeredCount: 0,
-    revealed: false,
-    choiceOrder: Array.from(order)  // ensure plain array for Firebase
-  });
+  // Save to Firebase — if presetOrder was passed, choiceOrder already saved atomically
+  // Only update Firebase here for the FIRST question (hostStartGame path)
+  if (!presetOrder) {
+    roomRef.update({
+      status: 'question',
+      currentQ: currentQ,
+      answeredCount: 0,
+      revealed: false,
+      choiceOrder: Array.from(order)
+    });
+  }
   roomRef.child('answers/' + String(currentQ)).remove();
 
   // FIX 1: Two-step button — first click reveals, second click advances
@@ -1038,8 +1042,17 @@ function hostNextQuestion() {
     setTimeout(showHostResults, 1500);
     return;
   }
-  roomRef.update({ status: 'question', currentQ: currentQ, revealed: false });
-  setTimeout(renderHostQuestion, 400);
+
+  // Generate choiceOrder NOW and include in same Firebase update as currentQ
+  // This ensures students receive both in one atomic update — no race condition
+  const nextOrder = Array.from([0,1,2,3].sort(() => Math.random() - 0.5));
+  roomRef.update({
+    status: 'question',
+    currentQ: currentQ,
+    revealed: false,
+    choiceOrder: nextOrder
+  });
+  setTimeout(() => renderHostQuestion(nextOrder), 400);
 }
 
 function showHostResults() {

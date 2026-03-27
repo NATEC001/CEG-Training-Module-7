@@ -698,7 +698,7 @@ function checkSession() {
           answerRevealed = false;
           document.getElementById('sg-timer-ring').style.display = 'none';
           showScreen('student-game');
-          renderStudentQuestion(currentQ);
+          renderStudentQuestion(currentQ, data.choiceOrder);
           listenForQuestionChanges();
         } else {
           showScreen('student-lobby');
@@ -894,7 +894,7 @@ function renderHostQuestion() {
     currentQ: currentQ,
     answeredCount: 0,
     revealed: false,
-    choiceOrder: order  // FIX 2: same order for all phones
+    choiceOrder: Array.from(order)  // ensure plain array for Firebase
   });
   roomRef.child('answers/' + String(currentQ)).remove();
 
@@ -1262,7 +1262,14 @@ function renderStudentQuestion(idx, choiceOrder) {
 
   const letters = ['A','B','C','D'];
   // FIX 2: Use the choiceOrder from Firebase (same as instructor) if available
-  const order = (choiceOrder && choiceOrder.length === 4) ? choiceOrder : [0,1,2,3].sort(() => Math.random() - 0.5);
+  // Firebase may return array as object {0:x,1:x,2:x,3:x} — convert if needed
+  let order;
+  if (choiceOrder && typeof choiceOrder === 'object') {
+    const arr = Array.isArray(choiceOrder) ? choiceOrder : [choiceOrder[0], choiceOrder[1], choiceOrder[2], choiceOrder[3]];
+    order = (arr.length === 4 && arr.every(v => v !== undefined)) ? arr : [0,1,2,3].sort(() => Math.random() - 0.5);
+  } else {
+    order = [0,1,2,3].sort(() => Math.random() - 0.5);
+  }
   const newCorrect = order.indexOf(q.correct);
 
   const choicesEl = document.getElementById('sg-choices');
